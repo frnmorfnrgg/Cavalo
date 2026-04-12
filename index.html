@@ -115,7 +115,8 @@
     let cofreGeral = 0, ganhoVideos = 0, capitalInvestidoTotal = 0, historicoInvest = [];
 
     function setHoje() {
-        const hoje = new Date().toISOString().split('T')[0];
+        const d = new Date();
+        const hoje = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
         document.getElementById('v-data').value = hoje;
     }
 
@@ -134,7 +135,7 @@
                 const dia = parseInt(dateMatch[1]);
                 const mes = parseInt(dateMatch[2]) - 1;
                 const ano = dateMatch[4] ? (dateMatch[4].length === 2 ? 2000 + parseInt(dateMatch[4]) : parseInt(dateMatch[4])) : new Date().getFullYear();
-                detectedDate = new Date(ano, mes, dia);
+                detectedDate = new Date(ano, mes, dia, 12, 0, 0); // Meio-dia para evitar erro de fuso
             }
 
             lines.forEach(line => {
@@ -156,9 +157,16 @@
         finally { document.getElementById('loading-ai').style.display = 'none'; }
     }
 
-    function adicionarRegistro(invest, lucro, dias, dataBase) {
-        let dInic = new Date(dataBase);
-        if (typeof dataBase === 'string') dInic = new Date(dataBase + 'T12:00:00');
+    function adicionarRegistro(invest, lucro, dias, dataInput) {
+        let dInic;
+        // Se vier do input (string), trata de forma que não mude o dia
+        if (typeof dataInput === 'string') {
+            const partes = dataInput.split('-');
+            dInic = new Date(partes[0], partes[1] - 1, partes[2], 12, 0, 0);
+        } else {
+            dInic = new Date(dataInput);
+            dInic.setHours(12, 0, 0, 0);
+        }
 
         let dFim = new Date(dInic);
         dFim.setDate(dInic.getDate() + (parseInt(dias) || 1));
@@ -168,8 +176,8 @@
             investido: invest, 
             lucro: lucro, 
             total: (invest + lucro), 
-            dataFeito: formatarD(dInic),
-            dataSairCompleta: formatarSemanas(dFim) // NOVO: Dia da semana + Data
+            dataFeito: formatarSimples(dInic),
+            dataSairCompleta: formatarComSemana(dFim)
         });
         capitalInvestidoTotal += invest; 
         cofreGeral += lucro;
@@ -201,15 +209,13 @@
         update(); renderHistorico();
     }
 
-    function formatarD(data) { 
+    function formatarSimples(data) { 
         return data.getDate().toString().padStart(2,'0')+'/'+(data.getMonth()+1).toString().padStart(2,'0'); 
     }
 
-    // Função para formatar "Segunda-feira, 12/04"
-    function formatarSemanas(data) {
+    function formatarComSemana(data) {
         const diasSemana = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-        const diaNome = diasSemana[data.getDay()];
-        return `${diaNome}, ${formatarD(data)}`;
+        return `${diasSemana[data.getDay()]}, ${formatarSimples(data)}`;
     }
 
     function update() {
