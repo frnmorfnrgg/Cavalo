@@ -53,7 +53,7 @@
 
         <div id="page-geral" class="page active">
             <div class="card border-total">
-                <span class="label" style="color: var(--neon);">Saldo Acumulado</span>
+                <span class="label" style="color: var(--neon);">Lucro Acumulado</span>
                 <div style="font-size: 2.4rem; font-weight: 900;">R$ <span id="display-cofre">0,00</span></div>
             </div>
             <div class="row">
@@ -66,7 +66,7 @@
                     <div style="font-size: 1.2rem;">R$ <span id="display-invest-resumo">0,00</span></div>
                 </div>
             </div>
-            <button onclick="location.reload()" style="width:100%; background:#111; color:#fff; border:1px solid #333; padding:12px; border-radius:12px; cursor:pointer;">SAIR / TROCAR CONTA</button>
+            <button onclick="location.reload()" style="width:100%; background:#111; color:#fff; border:1px solid #333; padding:12px; border-radius:12px; cursor:pointer;">SAIR</button>
         </div>
 
         <div id="page-invest" class="page">
@@ -74,7 +74,7 @@
                 <span style="font-size: 2.5rem;">📸</span><br>
                 <span style="font-weight: 900; color: var(--blue);">ESCANEAMENTO IA</span>
                 <input type="file" id="ai-scanner" accept="image/*" hidden onchange="scanImage(this)">
-                <div id="loading-ai">🤖 ANALISANDO FOTO...</div>
+                <div id="loading-ai">🤖 ENVIANDO PARA O HISTÓRICO...</div>
             </div>
             <div class="card border-invest">
                 <span class="label">Entrada Manual</span>
@@ -84,7 +84,9 @@
                 <div class="input-box"><label>PRAZO (DIAS)</label><input type="number" id="v-n" value="1"></div>
                 <button class="btn-save" style="background: var(--blue); color: #000;" onclick="saveToCofre('invest')">SALVAR</button>
             </div>
-            <div id="history-items" style="margin-top:20px"></div>
+            
+            <h3 style="font-size: 0.8rem; color: #555; margin-top: 20px;">HISTÓRICO DE OPERAÇÕES</h3>
+            <div id="history-items"></div>
         </div>
 
         <div id="page-videos" class="page">
@@ -123,7 +125,10 @@
                 if (matches) matches.forEach(m => vals.push(parseFloat(m.replace(/\./g, '').replace(',', '.'))));
             });
             if (vals.length >= 2) {
+                // Adiciona e já atualiza a tela
                 adicionarRegistro(Math.max(...vals), Math.min(...vals), 1, new Date());
+            } else {
+                alert("Não encontrei valores claros. Tente uma foto com mais contraste.");
             }
             await worker.terminate();
         } catch (e) { alert("Erro ao processar imagem."); }
@@ -132,7 +137,9 @@
 
     function adicionarRegistro(invest, lucro, dias, dataInput) {
         let dInic = dataInput ? new Date(dataInput) : new Date();
+        if (isNaN(dInic)) dInic = new Date(); // Fallback
         dInic.setHours(12, 0, 0, 0);
+        
         let dFim = new Date(dInic);
         dFim.setDate(dInic.getDate() + (parseInt(dias) || 1));
         
@@ -141,11 +148,18 @@
 
         historicoInvest.unshift({ 
             id: Date.now(),
-            investido: invest, lucro: lucro, total: totalFinal,
+            investido: invest, 
+            lucro: lucro, 
+            total: totalFinal,
             dataSair: `${["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"][dFim.getDay()]}, ${dFim.toLocaleDateString('pt-BR')}`
         });
-        capitalInvestidoTotal += invest; cofreGeral += (totalFinal - invest);
-        update(); renderHistorico();
+        
+        capitalInvestidoTotal += invest; 
+        cofreGeral += (totalFinal - invest);
+        
+        // ESSENCIAL: Atualiza dados e redesenha a lista
+        update(); 
+        renderHistorico();
     }
 
     function saveToCofre(tipo) {
@@ -157,9 +171,17 @@
             const l = parseFloat(document.getElementById('v-l').value) || 0;
             const n = parseInt(document.getElementById('v-n').value) || 1;
             const dt = document.getElementById('v-data').value;
-            if(p > 0) adicionarRegistro(p, l, n, dt ? new Date(dt + "T12:00:00") : null);
+            if(p > 0) {
+                // Garante que a data manual seja processada corretamente
+                let dataObj = dt ? new Date(dt + "T12:00:00") : new Date();
+                adicionarRegistro(p, l, n, dataObj);
+                // Limpa campos
+                document.getElementById('v-p').value = "";
+                document.getElementById('v-l').value = "";
+            }
         }
-        update(); renderHistorico();
+        update(); 
+        renderHistorico();
     }
 
     function removeInvest(id) {
@@ -168,7 +190,8 @@
             cofreGeral -= (historicoInvest[idx].total - historicoInvest[idx].investido);
             capitalInvestidoTotal -= historicoInvest[idx].investido;
             historicoInvest.splice(idx, 1);
-            update(); renderHistorico();
+            update(); 
+            renderHistorico();
         }
     }
 
@@ -177,11 +200,16 @@
         document.getElementById('display-cofre').innerText = f(cofreGeral);
         document.getElementById('display-video-resumo').innerText = f(ganhoVideos);
         document.getElementById('display-invest-resumo').innerText = f(capitalInvestidoTotal);
-        if(currentUser) localStorage.setItem(currentUser + '_v3', JSON.stringify({cofreGeral, ganhoVideos, capitalInvestidoTotal, historicoInvest}));
+        if(currentUser) localStorage.setItem(currentUser + '_final_v', JSON.stringify({cofreGeral, ganhoVideos, capitalInvestidoTotal, historicoInvest}));
     }
 
     function renderHistorico() {
-        document.getElementById('history-items').innerHTML = historicoInvest.map(item => `
+        const container = document.getElementById('history-items');
+        if (historicoInvest.length === 0) {
+            container.innerHTML = "<p style='color:#444; font-size:0.7rem; text-align:center;'>Nenhum registro encontrado.</p>";
+            return;
+        }
+        container.innerHTML = historicoInvest.map(item => `
             <div class="hist-item">
                 <button class="btn-del" onclick="removeInvest(${item.id})">×</button>
                 <div style="font-size:0.75rem; color:var(--neon)">LIBERA: <b>${item.dataSair}</b></div>
@@ -194,23 +222,31 @@
 
     function handleAuth() {
         currentUser = document.getElementById('auth-user').value.toLowerCase().trim() || "user";
-        const saved = JSON.parse(localStorage.getItem(currentUser + '_v3')) || {};
-        cofreGeral = saved.cofreGeral || 0; ganhoVideos = saved.ganhoVideos || 0;
+        const saved = JSON.parse(localStorage.getItem(currentUser + '_final_v')) || {};
+        cofreGeral = saved.cofreGeral || 0; 
+        ganhoVideos = saved.ganhoVideos || 0;
         capitalInvestidoTotal = saved.capitalInvestidoTotal || 0;
         historicoInvest = saved.historicoInvest || [];
+        
         document.getElementById('user-display').innerText = currentUser.toUpperCase();
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('app-content').style.display = 'block';
         
         const d = new Date();
         document.getElementById('v-data').value = d.toISOString().split('T')[0];
-        update(); renderHistorico();
+        
+        update(); 
+        renderHistorico();
     }
 
     function tab(id, el) {
-        document.querySelectorAll('.page, .nav-item').forEach(x => x.classList.remove('active'));
-        document.getElementById('page-'+id).classList.add('active'); el.classList.add('active');
+        document.querySelectorAll('.page, .nav-item').forEach(x => {
+            x.classList.remove('active');
+        });
+        document.getElementById('page-'+id).classList.add('active'); 
+        el.classList.add('active');
     }
 </script>
 </body>
-</html>
+    </html>
+    
