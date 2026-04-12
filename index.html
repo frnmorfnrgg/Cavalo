@@ -4,66 +4,40 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Finance PRO ™$</title>
-    
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-    
     <style>
-        :root { 
-            --neon: #00ff88; --bg: #050505; --card: #121212; --blue: #00d4ff; 
-            --purple: #a55eea; --red: #ff3e3e; 
-        }
+        :root { --neon: #00ff88; --bg: #050505; --card: #121212; --blue: #00d4ff; --purple: #a55eea; --red: #ff3e3e; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', sans-serif; }
         body { background: var(--bg); color: white; margin: 0; padding-bottom: 120px; overflow-x: hidden; }
-        
-        /* Telas de Autenticação */
         #auth-screen { position: fixed; inset: 0; background: #000; z-index: 10001; display: flex; align-items: center; justify-content: center; }
         .auth-card { background: #111; padding: 30px; border-radius: 30px; width: 90%; max-width: 380px; text-align: center; border: 1px solid #222; }
         .auth-card input { width: 100%; padding: 15px; margin: 10px 0; border-radius: 12px; border: 1px solid #333; background: #000; color: white; outline: none; }
         .btn-auth { width: 100%; padding: 18px; border-radius: 12px; border: none; background: var(--neon); color: #000; font-weight: bold; cursor: pointer; }
-
         #app-content { display: none; }
         .container { padding: 20px; max-width: 600px; margin: auto; }
         .page { display: none; animation: fadeIn 0.3s ease; }
         .page.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* Estilo dos Cards */
         .card { background: var(--card); border-radius: 20px; padding: 20px; margin-bottom: 15px; border: 1px solid #222; }
         .label { color: #aaa; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 8px; display: block; font-weight: bold; }
         .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        
         .border-total { border-left: 6px solid var(--neon); }
+        .border-video { border-left: 6px solid var(--red); }
         .border-invest { border-left: 6px solid var(--blue); }
-        
-        /* Inputs */
+        .border-equipe { border-left: 6px solid var(--purple); }
         .input-box { background: #1a1a1a; padding: 10px; border-radius: 12px; border: 1px solid #333; margin-bottom: 10px; }
         .input-box label { display: block; font-size: 0.6rem; color: #888; margin-bottom: 2px; }
         .input-box input { width: 100%; background: transparent; border: none; color: white; font-size: 1rem; outline: none; }
-
-        /* Área do Scanner */
-        .scanner-area { 
-            background: rgba(0, 212, 255, 0.08); 
-            border: 2px dashed var(--blue); 
-            padding: 25px; 
-            border-radius: 20px; 
-            text-align: center; 
-            margin-bottom: 20px; 
-            cursor: pointer;
-        }
+        .scanner-area { background: rgba(0, 212, 255, 0.08); border: 2px dashed var(--blue); padding: 25px; border-radius: 20px; text-align: center; margin-bottom: 20px; cursor: pointer; }
         #loading-ai { display: none; color: var(--blue); font-size: 0.8rem; margin-top: 10px; font-weight: bold; }
-
         .btn-save { width: 100%; background: var(--blue); color: white; border: none; padding: 16px; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .btn-red { background: var(--red); }
         .btn-reset { background: transparent; color: var(--red); border: 1px solid var(--red); padding: 8px; border-radius: 8px; width: 100%; margin-top: 10px; font-size: 0.7rem; cursor: pointer;}
-
-        /* Navegação Inferior */
         .nav { position: fixed; bottom: 0; width: 100%; height: 80px; background: rgba(0,0,0,0.95); display: flex; border-top: 1px solid #222; }
         .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #666; font-size: 0.7rem; }
         .nav-item.active { color: var(--neon); }
-
-        /* Histórico */
         .hist-item { background: #161616; padding: 15px; border-radius: 15px; margin-bottom: 10px; border-left: 5px solid var(--blue); }
         .hist-header { display: flex; justify-content: space-between; font-size: 0.7rem; color: #888; margin-bottom: 5px; }
-        .hist-val { display: flex; justify-content: space-between; align-items: center; }
     </style>
 </head>
 <body>
@@ -83,188 +57,153 @@
         <div id="page-geral" class="page active">
             <div class="card border-total">
                 <span class="label" style="color: var(--neon);">Saldo de Lucros</span>
-                <div style="font-size: 2rem; font-weight: 800;">R$ <span id="display-cofre">0,00</span></div>
+                <div style="font-size: 2.2rem; font-weight: 800;">R$ <span id="display-cofre">0,00</span></div>
             </div>
-            <div class="card border-invest">
-                <span class="label" style="color: var(--blue);">Capital em Operação</span>
-                <div style="font-size: 1.5rem;">R$ <span id="display-invest-resumo">0,00</span></div>
+            <div class="row">
+                <div class="card border-video"><span class="label" style="color: var(--red);">Vídeos</span><div style="font-size: 1.1rem;">R$ <span id="display-video-resumo">0,00</span></div></div>
+                <div class="card border-invest"><span class="label" style="color: var(--blue);">Investido</span><div style="font-size: 1.1rem;">R$ <span id="display-invest-resumo">0,00</span></div></div>
             </div>
-            <button class="btn-reset" onclick="zerarSaldo()">LIMPAR TODOS OS DADOS</button>
+            <div class="card border-equipe"><span class="label" style="color: var(--purple);">Equipe</span><div style="font-size: 1.5rem;"><span id="display-pessoas">0</span> membros</div></div>
+            <button class="btn-reset" onclick="zerarSaldo()">Zerar Sistema</button>
         </div>
 
         <div id="page-invest" class="page">
             <div class="scanner-area" onclick="document.getElementById('ai-scanner').click()">
                 <span style="font-size: 2rem;">📸</span><br>
-                <span style="font-weight: bold;">ESCANEAR PRINT DE REGISTRO</span><br>
-                <span style="font-size: 0.7rem; color: #aaa;">Lê valor, prazo e calcula retorno</span>
+                <span style="font-weight: bold;">ESCANEAR PRINT</span><br>
                 <input type="file" id="ai-scanner" accept="image/*" hidden onchange="scanImage(this)">
-                <div id="loading-ai">🤖 IA ANALISANDO REGISTROS...</div>
+                <div id="loading-ai">🤖 PROCESSANDO REGISTROS...</div>
             </div>
-
             <div class="card">
-                <span class="label">Entrada Manual</span>
-                <div class="input-box"><label>DATA DE INÍCIO</label><input type="date" id="v-data"></div>
-                <div class="input-box"><label>VALOR INVESTIDO (R$)</label><input type="number" id="v-p"></div>
-                <div class="row">
-                    <div class="input-box"><label>TAXA (%)</label><input type="number" id="v-i"></div>
-                    <div class="input-box"><label>DIAS</label><input type="number" id="v-n"></div>
-                </div>
-                <button class="btn-save" onclick="saveToCofre('invest')">SALVAR MANUAL</button>
+                <span class="label">Manual</span>
+                <div class="input-box"><label>VALOR INVESTIDO</label><input type="number" id="v-p"></div>
+                <div class="input-box"><label>LUCRO QUE VAI VOLTAR (SEM O INVESTIDO)</label><input type="number" id="v-l"></div>
+                <div class="input-box"><label>DIAS</label><input type="number" id="v-n" value="1"></div>
+                <button class="btn-save" onclick="saveManual()">SALVAR</button>
             </div>
-
-            <h3 style="font-size: 0.8rem; color: var(--blue);">HISTÓRICO DE OPERAÇÕES</h3>
             <div id="history-items"></div>
         </div>
 
+        <div id="page-videos" class="page">
+            <div class="card border-video">
+                <span class="label">Ganhos Vídeos</span>
+                <div class="input-box"><label>QUANTIDADE</label><input type="number" id="vid-qtd"></div>
+                <div class="input-box"><label>VALOR UNITÁRIO</label><input type="number" id="vid-val" value="0.00"></div>
+                <button class="btn-save btn-red" onclick="saveVideo()">ADICIONAR</button>
+            </div>
+        </div>
+
         <div id="page-equipe" class="page">
-            <div class="card" style="border-left: 6px solid var(--purple);">
-                <span class="label">Membros da Equipe</span>
+            <div class="card border-equipe">
+                <span class="label">Membros</span>
                 <div class="input-box"><label>NÍVEL A</label><input type="number" id="q-a" oninput="update()"></div>
                 <div class="input-box"><label>NÍVEL B</label><input type="number" id="q-b" oninput="update()"></div>
                 <div class="input-box"><label>NÍVEL C</label><input type="number" id="q-c" oninput="update()"></div>
             </div>
         </div>
-
     </div>
 
     <nav class="nav">
         <div class="nav-item active" onclick="tab('geral', this)">🏠<br>Início</div>
         <div class="nav-item" onclick="tab('invest', this)">📊<br>Investir</div>
+        <div class="nav-item" onclick="tab('videos', this)">🎬<br>Vídeos</div>
         <div class="nav-item" onclick="tab('equipe', this)">👥<br>Equipe</div>
     </nav>
 </div>
 
 <script>
     let currentUser = "";
-    let cofreGeral = 0; 
-    let capitalInvestidoTotal = 0; 
-    let historicoInvest = [];
+    let cofreGeral = 0, ganhoVideos = 0, capitalInvestidoTotal = 0, historicoInvest = [];
 
-    // --- LÓGICA DA IA ---
     async function scanImage(input) {
         if (!input.files || !input.files[0]) return;
-        const loading = document.getElementById('loading-ai');
-        loading.style.display = 'block';
-        
+        document.getElementById('loading-ai').style.display = 'block';
         try {
             const result = await Tesseract.recognize(input.files[0], 'por');
             const lines = result.data.text.split('\n');
-            let detectados = 0;
-
             let tempInvest = 0, tempTotal = 0, tempDias = 0, tempData = "";
 
             lines.forEach(line => {
-                // Procura "5 dias"
                 const mDias = line.match(/(\d+)\s*dias/i);
                 if(mDias) tempDias = parseInt(mDias[1]);
-
-                // Procura "BRL 36.00"
-                if(line.includes("BRL")) {
-                    const mV = line.match(/BRL\s*([\d.,]+)/i);
-                    if(mV && tempInvest === 0) tempInvest = parseFloat(mV[1].replace(',', '.'));
-                }
-
-                // Procura Data
-                const mD = line.match(/(\d{2}\/\d{2}\/\d{4})/);
-                if(mD) tempData = mD[1];
-
-                // Procura Retorno Final
+                const mVal = line.match(/BRL\s*([\d.,]+)/i);
+                if(mVal && tempInvest === 0) tempInvest = parseFloat(mVal[1].replace(',', '.'));
+                const mDate = line.match(/(\d{2}\/\d{2}\/\d{4})/);
+                if(mDate) tempData = mDate[1];
+                
                 if(line.includes("esperado") || (tempInvest > 0 && line.match(/BRL\s*[\d.,]+$/))) {
                     const mR = line.match(/BRL\s*([\d.,]+)/i) || line.match(/([\d.,]+)$/);
                     if(mR) {
                         tempTotal = parseFloat(mR[1].replace(',', '.'));
                         if(tempInvest > 0) {
-                            adicionarRegistro(tempInvest, tempTotal, tempDias, tempData);
-                            detectados++;
+                            const lucroLiquido = tempTotal - tempInvest;
+                            adicionarRegistro(tempInvest, lucroLiquido, tempDias, tempData);
                             tempInvest = 0; tempTotal = 0; tempDias = 0; tempData = "";
                         }
                     }
                 }
             });
-
-            if(detectados > 0) { update(); renderHistorico(); alert(`Sucesso: ${detectados} itens lidos!`); }
-        } catch (e) { alert("Erro ao ler imagem."); }
-        finally { loading.style.display = 'none'; input.value = ""; }
+            update(); renderHistorico();
+        } catch (e) { alert("Erro na leitura."); }
+        finally { document.getElementById('loading-ai').style.display = 'none'; input.value = ""; }
     }
 
-    function adicionarRegistro(invest, total, dias, dataInicStr) {
-        const lucro = total - invest;
-        let dataBase = dataInicStr ? converterData(dataInicStr) : new Date();
-        let dataFim = new Date(dataBase);
-        dataFim.setDate(dataBase.getDate() + (dias || 1));
-
-        historicoInvest.unshift({
-            investido: invest,
-            lucro: lucro,
-            inicio: formatarD(dataBase),
-            sair: formatarD(dataFim)
-        });
-        capitalInvestidoTotal += invest;
-        cofreGeral += lucro;
+    function adicionarRegistro(invest, lucro, dias, dataStr) {
+        let dInic = dataStr ? new Date(dataStr.split('/').reverse().join('-') + "T12:00:00") : new Date();
+        let dFim = new Date(dInic);
+        dFim.setDate(dInic.getDate() + (dias || 1));
+        historicoInvest.unshift({ investido: invest, lucro: lucro, inicio: formatarD(dInic), sair: formatarD(dFim) });
+        capitalInvestidoTotal += invest; cofreGeral += lucro;
     }
 
-    // --- UTILITÁRIOS ---
-    function converterData(s) { const p = s.split('/'); return new Date(p[2], p[1]-1, p[0], 12); }
+    function saveManual() {
+        const p = parseFloat(document.getElementById('v-p').value) || 0;
+        const l = parseFloat(document.getElementById('v-l').value) || 0;
+        const n = parseInt(document.getElementById('v-n').value) || 1;
+        if(p > 0) { adicionarRegistro(p, l, n, ""); update(); renderHistorico(); }
+    }
+
+    function saveVideo() {
+        const v = (parseFloat(document.getElementById('vid-qtd').value) || 0) * (parseFloat(document.getElementById('vid-val').value) || 0);
+        cofreGeral += v; ganhoVideos += v; update();
+    }
+
     function formatarD(d) { return d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0') + '/' + d.getFullYear(); }
 
-    function handleAuth() {
-        currentUser = document.getElementById('auth-user').value.trim().toLowerCase() || "admin";
-        localStorage.setItem('finance_session', currentUser);
-        
-        cofreGeral = parseFloat(localStorage.getItem(currentUser + '_cofre')) || 0;
-        capitalInvestidoTotal = parseFloat(localStorage.getItem(currentUser + '_cap_inv')) || 0;
-        historicoInvest = JSON.parse(localStorage.getItem(currentUser + '_history')) || [];
-        
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('app-content').style.display = 'block';
-        update(); renderHistorico();
-    }
-
-    function saveToCofre(tipo) {
-        if(tipo === 'invest') {
-            const p = parseFloat(document.getElementById('v-p').value) || 0;
-            const tx = parseFloat(document.getElementById('v-i').value) || 0;
-            const n = parseInt(document.getElementById('v-n').value) || 1;
-            const dt = document.getElementById('v-data').value;
-            if(p > 0) {
-                const total = p + (p * (tx/100) * n);
-                const dInic = dt ? new Date(dt + "T12:00:00") : new Date();
-                adicionarRegistro(p, total, n, formatarD(dInic));
-                update(); renderHistorico();
-            }
-        }
-    }
-
     function update() {
-        document.getElementById('display-cofre').innerText = cofreGeral.toLocaleString('pt-BR', {minimumFractionDigits:2});
-        document.getElementById('display-invest-resumo').innerText = capitalInvestidoTotal.toLocaleString('pt-BR', {minimumFractionDigits:2});
-        
-        localStorage.setItem(currentUser + '_cofre', cofreGeral);
-        localStorage.setItem(currentUser + '_cap_inv', capitalInvestidoTotal);
-        localStorage.setItem(currentUser + '_history', JSON.stringify(historicoInvest));
+        const f = (v) => v.toLocaleString('pt-BR', {minimumFractionDigits:2});
+        document.getElementById('display-cofre').innerText = f(cofreGeral);
+        document.getElementById('display-video-resumo').innerText = f(ganhoVideos);
+        document.getElementById('display-invest-resumo').innerText = f(capitalInvestidoTotal);
+        const qTot = (parseInt(document.getElementById('q-a').value) || 0) + (parseInt(document.getElementById('q-b').value) || 0) + (parseInt(document.getElementById('q-c').value) || 0);
+        document.getElementById('display-pessoas').innerText = qTot;
+        localStorage.setItem(currentUser + '_data', JSON.stringify({cofreGeral, ganhoVideos, capitalInvestidoTotal, historicoInvest, qa: document.getElementById('q-a').value, qb: document.getElementById('q-b').value, qc: document.getElementById('q-c').value }));
     }
 
     function renderHistorico() {
         document.getElementById('history-items').innerHTML = historicoInvest.map(item => `
             <div class="hist-item">
-                <div class="hist-header"><span>Início: ${item.inicio}</span> <span style="color:var(--blue)">Retorno: ${item.sair}</span></div>
-                <div class="hist-val">
-                    <span style="font-size:0.7rem">Cap: R$ ${item.investido.toFixed(2)}</span>
-                    <span style="color:var(--neon); font-weight:bold">+ R$ ${item.lucro.toFixed(2)}</span>
+                <div class="hist-header"><span>De: ${item.inicio}</span> <span style="color:var(--blue)">Até: ${item.sair}</span></div>
+                <div style="display:flex; justify-content:space-between">
+                    <span style="font-size:0.7rem; color:#888">Inv: R$ ${item.investido.toFixed(2)}</span>
+                    <span style="color:var(--neon); font-weight:bold">Lucro: +R$ ${item.lucro.toFixed(2)}</span>
                 </div>
-            </div>
-        `).join('');
+            </div>`).join('');
     }
 
-    function tab(id, el) {
-        document.querySelectorAll('.page, .nav-item').forEach(x => x.classList.remove('active'));
-        document.getElementById('page-'+id).classList.add('active');
-        el.classList.add('active');
+    function handleAuth() {
+        currentUser = document.getElementById('auth-user').value.trim().toLowerCase() || "user";
+        const saved = JSON.parse(localStorage.getItem(currentUser + '_data')) || {};
+        cofreGeral = saved.cofreGeral || 0; ganhoVideos = saved.ganhoVideos || 0;
+        capitalInvestidoTotal = saved.capitalInvestidoTotal || 0; historicoInvest = saved.historicoInvest || [];
+        document.getElementById('q-a').value = saved.qa || 0; document.getElementById('q-b').value = saved.qb || 0; document.getElementById('q-c').value = saved.qc || 0;
+        document.getElementById('auth-screen').style.display = 'none'; document.getElementById('app-content').style.display = 'block';
+        update(); renderHistorico();
     }
 
-    function zerarSaldo() { if(confirm("Apagar tudo?")) { localStorage.clear(); location.reload(); } }
-    
-    window.onload = () => { if(localStorage.getItem('finance_session')) handleAuth(); }
+    function tab(id, el) { document.querySelectorAll('.page, .nav-item').forEach(x => x.classList.remove('active')); document.getElementById('page-'+id).classList.add('active'); el.classList.add('active'); }
+    function zerarSaldo() { if(confirm("Zerar tudo?")) { localStorage.clear(); location.reload(); } }
+    window.onload = () => { if(localStorage.getItem('finance_session')) { document.getElementById('auth-user').value = localStorage.getItem('finance_session'); handleAuth(); } }
 </script>
 </body>
 </html>
