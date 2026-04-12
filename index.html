@@ -39,14 +39,24 @@
         .input-box input { width: 100%; background: transparent; border: none; color: white; font-size: 1.1rem; outline: none; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
 
+        /* Estilo do Scanner de Prints */
+        .scanner-area { 
+            background: rgba(0, 212, 255, 0.05); 
+            border: 2px dashed var(--blue); 
+            padding: 20px; 
+            border-radius: 20px; 
+            text-align: center; 
+            margin-bottom: 20px; 
+            cursor: pointer; 
+            transition: 0.3s;
+        }
+        .scanner-area:active { transform: scale(0.98); background: rgba(0, 212, 255, 0.1); }
+        #loading-ai { display: none; color: var(--blue); font-size: 0.8rem; margin-top: 10px; font-weight: bold; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
         .btn-save { width: 100%; background: var(--neon); color: #000; border: none; padding: 18px; border-radius: 15px; font-weight: 800; cursor: pointer; }
         .btn-reset { width: 100%; background: transparent; color: var(--red); border: 1px solid var(--red); padding: 10px; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 0.8rem; }
         
-        /* Estilo para o Scanner */
-        .scanner-area { background: #1a1a1a; border: 2px dashed #333; padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 15px; cursor: pointer; transition: 0.3s; }
-        .scanner-area:active { border-color: var(--blue); }
-        #loading-ai { display: none; color: var(--blue); font-size: 0.8rem; margin-top: 10px; font-weight: bold; }
-
         #previa-box { background: rgba(0, 212, 255, 0.05); border: 1px dashed var(--blue); padding: 15px; border-radius: 15px; margin-bottom: 15px; text-align: center; display: none; }
 
         .nav { position: fixed; bottom: 0; width: 100%; height: 85px; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #222; z-index: 1000; }
@@ -98,12 +108,13 @@
         <div id="page-invest" class="page">
             <div class="card border-invest">
                 <span class="label">Novo Investimento</span>
-                
+
                 <div class="scanner-area" onclick="document.getElementById('ai-scanner').click()">
-                    <span style="font-size: 1.5rem;">📸</span><br>
-                    <span style="font-size: 0.7rem; color: #888;">ESCANEAR COMPROVANTE</span>
-                    <input type="file" id="ai-scanner" accept="image/*" capture="camera" hidden onchange="scanImage(this)">
-                    <div id="loading-ai">IA PROCESSANDO... 🤖</div>
+                    <span style="font-size: 1.8rem;">🖼️</span><br>
+                    <span style="font-size: 0.8rem; color: #fff; font-weight: bold;">ESCANEAR PRINT OU FOTO</span><br>
+                    <span style="font-size: 0.6rem; color: #888;">Clique para escolher da galeria</span>
+                    <input type="file" id="ai-scanner" accept="image/*" hidden onchange="scanImage(this)">
+                    <div id="loading-ai">IA PROCESSANDO PRINT... 🤖</div>
                 </div>
 
                 <div class="input-box"><label>DATA DE INÍCIO</label><input type="date" id="v-data"></div>
@@ -160,7 +171,7 @@
     let capitalInvestidoTotal = 0; 
     let historicoInvest = [];
 
-    // --- LÓGICA DA IA (OCR) ---
+    // --- FUNÇÃO DA IA PARA LER PRINTS ---
     async function scanImage(input) {
         if (!input.files || !input.files[0]) return;
         
@@ -168,31 +179,40 @@
         loading.style.display = 'block';
         
         try {
+            // Tesseract lê a imagem (o primeiro uso baixa os dados de linguagem)
             const result = await Tesseract.recognize(input.files[0], 'por');
             const text = result.data.text;
-            console.log("IA leu:", text);
+            console.log("Texto extraído:", text);
 
-            // Tenta achar um valor numérico (Ex: R$ 500,00 ou 500.00)
-            const regexMoeda = /(?:R\$|VALOR|TOTAL)\s*([\d.,]+)/i;
+            // Regex para buscar valores (Ex: R$ 1.500,00 ou Total: 500)
+            const regexMoeda = /(?:R\$|VALOR|TOTAL|DEP|PAG)\s*([\d.,]+)/i;
             const match = text.match(regexMoeda);
 
             if (match && match[1]) {
-                let valorLimpo = match[1].replace(/\./g, '').replace(',', '.');
-                document.getElementById('v-p').value = parseFloat(valorLimpo);
-                alert("IA identificou o valor: R$ " + valorLimpo);
-                calcularPrevia();
+                let valorStr = match[1].trim();
+                // Converte formato BR (1.200,50) para float (1200.50)
+                let valorLimpo = valorStr.replace(/\./g, '').replace(',', '.');
+                const valorFinal = parseFloat(valorLimpo);
+                
+                if(!isNaN(valorFinal)) {
+                    document.getElementById('v-p').value = valorFinal;
+                    alert("✅ Valor detectado: R$ " + valorFinal.toFixed(2));
+                    calcularPrevia();
+                }
             } else {
-                alert("IA não conseguiu identificar um valor claro. Tente digitar manualmente.");
+                alert("❌ Não encontrei um valor claro no print. Tente um print mais nítido.");
             }
         } catch (e) {
-            alert("Erro ao processar imagem.");
+            alert("Erro na IA: Verifique sua conexão.");
         } finally {
             loading.style.display = 'none';
+            input.value = ""; // Reseta o input
         }
     }
 
+    // --- LÓGICA DO APP ---
     const formatarD = (data) => {
-        const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
         const d = data.getDate().toString().padStart(2, '0');
         const m = (data.getMonth() + 1).toString().padStart(2, '0');
         return `${d}/${m} (${dias[data.getDay()]})`;
@@ -243,7 +263,9 @@
     function saveToCofre(tipo) {
         if (tipo === 'video') {
             const v = (parseFloat(document.getElementById('vid-qtd').value) || 0) * (parseFloat(document.getElementById('vid-val').value) || 0);
+            if(v <= 0) return;
             cofreGeral += v; ganhoVideos += v;
+            document.getElementById('vid-qtd').value = "";
         } else if (tipo === 'invest') {
             const p = parseFloat(document.getElementById('v-p').value) || 0;
             const tx = parseFloat(document.getElementById('v-i').value) || 0;
@@ -262,7 +284,6 @@
             capitalInvestidoTotal += p; cofreGeral += lucro;
             
             document.getElementById('v-p').value = "";
-            document.getElementById('v-i').value = "";
             document.getElementById('v-data').value = "";
             document.getElementById('previa-box').style.display = "none";
         }
@@ -292,18 +313,22 @@
     function renderHistorico() {
         document.getElementById('history-items').innerHTML = historicoInvest.map(item => `
             <div class="hist-item">
-                <div class="data-info" style="color:#888"><span>Entrada:</span> <b>${item.inicio}</b></div>
-                <div class="data-info" style="color:var(--neon); margin-bottom:8px"><span>Liberação:</span> <b>${item.sair}</b></div>
-                <div style="display:flex; justify-content:space-between; border-top:1px solid #222; padding-top:8px">
-                    <span style="font-size:0.7rem; color:#666">Capital: R$ ${item.investido.toFixed(2)}</span>
+                <div class="data-info" style="color:#888"><span>Início:</span> <b>${item.inicio}</b></div>
+                <div class="data-info" style="color:var(--neon)"><span>Saída:</span> <b>${item.sair}</b></div>
+                <div style="display:flex; justify-content:space-between; margin-top:8px; border-top:1px solid #222; padding-top:8px">
+                    <span style="font-size:0.7rem; color:#666">R$ ${item.investido.toFixed(2)}</span>
                     <span style="color:var(--neon); font-weight:bold">+ R$ ${item.lucro.toFixed(2)}</span>
                 </div>
             </div>
         `).join('');
     }
 
-    function zerarSaldo() { if(confirm("Apagar tudo desta conta?")) { cofreGeral=0; ganhoVideos=0; capitalInvestidoTotal=0; historicoInvest=[]; update(); renderHistorico(); } }
-    function tab(id, el) { document.querySelectorAll('.page, .nav-item').forEach(x => x.classList.remove('active')); document.getElementById('page-'+id).classList.add('active'); el.classList.add('active'); }
+    function zerarSaldo() { if(confirm("Apagar dados desta conta?")) { cofreGeral=0; ganhoVideos=0; capitalInvestidoTotal=0; historicoInvest=[]; update(); renderHistorico(); } }
+    function tab(id, el) { 
+        document.querySelectorAll('.page, .nav-item').forEach(x => x.classList.remove('active')); 
+        document.getElementById('page-'+id).classList.add('active'); 
+        el.classList.add('active'); 
+    }
     function logout() { localStorage.removeItem('finance_session'); location.reload(); }
     
     window.onload = () => { 
