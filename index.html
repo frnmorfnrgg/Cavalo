@@ -77,9 +77,9 @@
         <div id="page-invest" class="page">
             <div class="scanner-area" onclick="document.getElementById('ai-scanner').click()">
                 <span style="font-size: 2.2rem;">📸</span><br>
-                <span style="font-weight: 900; color: var(--blue);">ESCANEAR REGISTRO</span><br>
+                <span style="font-weight: 900; color: var(--blue);">ESCANEAMENTO PROFUNDO</span><br>
                 <input type="file" id="ai-scanner" accept="image/*" hidden onchange="scanImage(this)">
-                <div id="loading-ai">🤖 ANALISANDO IMAGEM...</div>
+                <div id="loading-ai">🤖 ANALISANDO CADA DETALHE...</div>
             </div>
 
             <div class="card border-invest">
@@ -123,43 +123,69 @@
     async function scanImage(input) {
         if (!input.files || !input.files[0]) return;
         document.getElementById('loading-ai').style.display = 'block';
+        
         try {
-            const result = await Tesseract.recognize(input.files[0], 'por');
-            const fullText = result.data.text;
+            // Configuração de alto desempenho da IA
+            const worker = await Tesseract.createWorker('por');
+            await worker.setParameters({
+                tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT, // Busca texto em toda a imagem
+                tessjs_create_hocr: '0',
+            });
+
+            const { data: { text } } = await worker.recognize(input.files[0]);
+            const fullText = text.toUpperCase();
             const lines = fullText.split('\n');
+            
             let tempInvest = 0, tempRendimento = 0, tempDias = 0;
             let detectedDate = new Date();
+            detectedDate.setHours(12, 0, 0, 0);
 
-            const dateMatch = fullText.match(/(\d{2})\/(\d{2})(\/(\d{2,4}))?/);
+            // Busca profunda por data (aceita DD/MM, DD.MM ou DD-MM)
+            const dateMatch = fullText.match(/(\d{2})[\/\.\-](\d{2})([\/\.\-](\d{2,4}))?/);
             if (dateMatch) {
                 const dia = parseInt(dateMatch[1]);
                 const mes = parseInt(dateMatch[2]) - 1;
                 const ano = dateMatch[4] ? (dateMatch[4].length === 2 ? 2000 + parseInt(dateMatch[4]) : parseInt(dateMatch[4])) : new Date().getFullYear();
-                detectedDate = new Date(ano, mes, dia, 12, 0, 0); // Meio-dia para evitar erro de fuso
+                detectedDate = new Date(ano, mes, dia, 12, 0, 0);
             }
 
             lines.forEach(line => {
-                const dMatch = line.match(/(\d+)\s*dias/i);
+                // Captura dias
+                const dMatch = line.match(/(\d+)\s*(DIAS|DIA)/i);
                 if(dMatch) tempDias = parseInt(dMatch[1]);
-                if(line.includes("BRL")) {
-                    const vMatch = line.match(/BRL\s*([\d.,]+)/i);
-                    let valor = vMatch ? parseFloat(vMatch[1].replace(',', '.')) : 0;
-                    if(tempInvest === 0) tempInvest = valor;
-                    else tempRendimento = valor;
+
+                // Captura valores financeiros (BRL ou R$)
+                if(line.includes("BRL") || line.includes("R$") || line.includes("$")) {
+                    const vMatch = line.match(/[\d.,]{2,}/g);
+                    if (vMatch) {
+                        vMatch.forEach(vStr => {
+                            let valor = parseFloat(vStr.replace('.', '').replace(',', '.'));
+                            if (valor > 1) { // Filtra sujeira de leitura
+                                if(tempInvest === 0) tempInvest = valor;
+                                else if (valor !== tempInvest) tempRendimento = valor;
+                            }
+                        });
+                    }
                 }
+
                 if(tempInvest > 0 && tempRendimento > 0) {
-                    adicionarRegistro(tempInvest, tempRendimento, tempDias, detectedDate);
+                    adicionarRegistro(tempInvest, tempRendimento, tempDias || 1, detectedDate);
                     tempInvest = 0; tempRendimento = 0;
                 }
             });
+
+            await worker.terminate();
             update(); renderHistorico();
-        } catch (e) { alert("Erro na análise"); }
-        finally { document.getElementById('loading-ai').style.display = 'none'; }
+        } catch (e) { 
+            console.error(e);
+            alert("Erro no escaneamento profundo."); 
+        } finally { 
+            document.getElementById('loading-ai').style.display = 'none'; 
+        }
     }
 
     function adicionarRegistro(invest, lucro, dias, dataInput) {
         let dInic;
-        // Se vier do input (string), trata de forma que não mude o dia
         if (typeof dataInput === 'string') {
             const partes = dataInput.split('-');
             dInic = new Date(partes[0], partes[1] - 1, partes[2], 12, 0, 0);
