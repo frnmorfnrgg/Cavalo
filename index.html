@@ -24,13 +24,12 @@
         .border-total { border-left: 6px solid var(--neon); }
         .border-video { border-left: 6px solid var(--red); }
         .border-invest { border-left: 6px solid var(--blue); }
-        .border-equipe { border-left: 6px solid var(--purple); }
         .scanner-area { background: rgba(0, 212, 255, 0.08); border: 2px dashed var(--blue); padding: 20px; border-radius: 20px; text-align: center; margin-bottom: 20px; cursor: pointer; }
         #loading-ai { display: none; color: var(--blue); font-size: 0.8rem; margin-top: 10px; font-weight: bold; }
         .input-box { background: #1a1a1a; padding: 12px; border-radius: 15px; border: 1px solid #333; margin-bottom: 10px; }
         .input-box label { display: block; font-size: 0.65rem; color: #888; margin-bottom: 4px; }
         .input-box input { width: 100%; background: transparent; border: none; color: white; font-size: 1.1rem; outline: none; }
-        .input-box input[type="date"] { color-scheme: dark; } /* Melhora visual do calendário no dark mode */
+        .input-box input[type="date"] { color-scheme: dark; }
         .btn-save { width: 100%; background: var(--neon); color: #000; border: none; padding: 18px; border-radius: 15px; font-weight: 800; cursor: pointer; }
         .btn-reset { width: 100%; background: transparent; color: var(--red); border: 1px solid var(--red); padding: 10px; border-radius: 12px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 0.8rem; }
         .nav { position: fixed; bottom: 0; width: 100%; height: 85px; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #222; z-index: 1000; }
@@ -80,7 +79,7 @@
                 <span style="font-size: 2.2rem;">📸</span><br>
                 <span style="font-weight: 900; color: var(--blue);">ESCANEAR REGISTRO</span><br>
                 <input type="file" id="ai-scanner" accept="image/*" hidden onchange="scanImage(this)">
-                <div id="loading-ai">🤖 ANALISANDO...</div>
+                <div id="loading-ai">🤖 ANALISANDO IMAGEM E DATA...</div>
             </div>
 
             <div class="card border-invest">
@@ -115,7 +114,6 @@
     let currentUser = "";
     let cofreGeral = 0, ganhoVideos = 0, capitalInvestidoTotal = 0, historicoInvest = [];
 
-    // Define a data de hoje como padrão no calendário ao carregar
     function setHoje() {
         const hoje = new Date().toISOString().split('T')[0];
         document.getElementById('v-data').value = hoje;
@@ -126,8 +124,20 @@
         document.getElementById('loading-ai').style.display = 'block';
         try {
             const result = await Tesseract.recognize(input.files[0], 'por');
-            const lines = result.data.text.split('\n');
+            const fullText = result.data.text;
+            const lines = fullText.split('\n');
+            
             let tempInvest = 0, tempRendimento = 0, tempDias = 0;
+            let detectedDate = new Date(); // Padrão hoje
+
+            // Tenta detectar data no formato DD/MM ou DD/MM/AAAA
+            const dateMatch = fullText.match(/(\d{2})\/(\d{2})(\/(\d{2,4}))?/);
+            if (dateMatch) {
+                const dia = parseInt(dateMatch[1]);
+                const mes = parseInt(dateMatch[2]) - 1;
+                const ano = dateMatch[4] ? (dateMatch[4].length === 2 ? 2000 + parseInt(dateMatch[4]) : parseInt(dateMatch[4])) : new Date().getFullYear();
+                detectedDate = new Date(ano, mes, dia);
+            }
 
             lines.forEach(line => {
                 const dMatch = line.match(/(\d+)\s*dias/i);
@@ -139,20 +149,22 @@
                     else tempRendimento = valor;
                 }
                 if(tempInvest > 0 && tempRendimento > 0) {
-                    adicionarRegistro(tempInvest, tempRendimento, tempDias, new Date());
+                    adicionarRegistro(tempInvest, tempRendimento, tempDias, detectedDate);
                     tempInvest = 0; tempRendimento = 0;
                 }
             });
             update(); renderHistorico();
-        } catch (e) { alert("Erro IA"); }
+        } catch (e) { alert("Erro na análise da IA"); }
         finally { document.getElementById('loading-ai').style.display = 'none'; }
     }
 
     function adicionarRegistro(invest, lucro, dias, dataBase) {
         let dInic = new Date(dataBase);
-        // Ajuste de fuso horário para inputs do tipo date
-        dInic.setMinutes(dInic.getMinutes() + dInic.getTimezoneOffset());
-        
+        // Garantir que a data não sofra shift de fuso horário
+        if (typeof dataBase === 'string') {
+            dInic = new Date(dataBase + 'T12:00:00');
+        }
+
         let dFim = new Date(dInic);
         dFim.setDate(dInic.getDate() + (parseInt(dias) || 1));
         
@@ -189,7 +201,7 @@
             const dataEscolha = document.getElementById('v-data').value;
             
             if(p > 0) {
-                adicionarRegistro(p, l, n, dataEscolha ? new Date(dataEscolha) : new Date());
+                adicionarRegistro(p, l, n, dataEscolha);
             }
             document.getElementById('v-p').value = ""; document.getElementById('v-l').value = "";
             setHoje();
