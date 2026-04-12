@@ -2,153 +2,105 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finance Scan PRO</title>
-    <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance PRO + Gemini AI</title>
     <style>
-        :root { --neon: #00ff88; --bg: #050505; --card: #121212; --blue: #00d4ff; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', sans-serif; }
-        body { background: var(--bg); color: white; margin: 0; padding: 20px; overflow-x: hidden; }
-        
-        .scanner-area { 
-            background: rgba(0, 212, 255, 0.08); 
-            border: 2px dashed var(--blue); 
-            padding: 40px 20px; 
-            border-radius: 25px; 
-            text-align: center; 
-            margin-bottom: 30px; 
-            cursor: pointer; 
-        }
-        
-        #loading-ai { display: none; color: var(--blue); font-weight: bold; margin-top: 15px; font-size: 0.9rem; }
-
-        .hist-item { 
-            background: var(--card); 
-            padding: 15px; 
-            border-radius: 18px; 
-            margin-bottom: 12px; 
-            border: 1px solid #222; 
-            position: relative; 
-            animation: slideIn 0.3s ease;
-        }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        .btn-del { 
-            position: absolute; top: 10px; right: 10px; 
-            color: #ff3e3e; background: rgba(255, 62, 62, 0.1); 
-            border-radius: 50%; width: 28px; height: 28px; 
-            border: none; font-weight: bold; cursor: pointer; 
-        }
-
-        .label-libera { font-size: 0.75rem; color: var(--neon); text-transform: uppercase; font-weight: bold; }
-        .val-row { display: flex; justify-content: space-between; margin-top: 8px; }
-        .val-unit { font-size: 0.9rem; color: #fff; }
-        .val-profit { color: var(--neon); font-weight: bold; }
-        
-        h2 { font-size: 1rem; color: #666; letter-spacing: 1px; margin-bottom: 15px; }
+        :root { --neon: #00ff88; --bg: #050505; --blue: #00d4ff; }
+        body { background: var(--bg); color: white; font-family: sans-serif; padding: 20px; }
+        .card { background: #121212; border: 1px solid #222; padding: 20px; border-radius: 20px; margin-bottom: 20px; }
+        .scanner-btn { background: var(--blue); color: #000; padding: 20px; border-radius: 15px; text-align: center; cursor: pointer; font-weight: bold; }
+        .hist-item { border-left: 4px solid var(--neon); background: #1a1a1a; padding: 15px; margin-top: 10px; border-radius: 10px; }
+        input { width: 100%; padding: 10px; margin-top: 10px; background: #000; border: 1px solid #333; color: white; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="scanner-area" onclick="document.getElementById('ai-scanner').click()">
-        <span style="font-size: 3rem;">📸</span><br>
-        <span style="font-weight: 900; color: var(--blue); font-size: 1.2rem;">ESCANEAR INVESTIMENTO</span><br>
-        <small style="color: #555;">Toque para selecionar a foto</small>
-        <input type="file" id="ai-scanner" accept="image/*" hidden onchange="scanImage(this)">
-        <div id="loading-ai">🤖 PROCESSANDO IMAGEM...</div>
+    <div class="card">
+        <h3>Configuração</h3>
+        <label style="font-size: 0.8rem; color: #888;">COLE SUA API KEY AQUI:</label>
+        <input type="password" id="api-key" placeholder="AIza...">
+        <p style="font-size: 0.7rem; color: #555;">Sua chave fica salva apenas no seu navegador.</p>
     </div>
 
-    <h2>HISTÓRICO DE OPERAÇÕES</h2>
-    <div id="history-items"></div>
+    <div class="scanner-btn" onclick="document.getElementById('file-input').click()">
+        📸 ESCANEAR COM GEMINI AI
+        <input type="file" id="file-input" accept="image/*" hidden onchange="analisarComAI(this)">
+    </div>
+    
+    <div id="status"></div>
+
+    <h4>HISTÓRICO DE INVESTIMENTOS</h4>
+    <div id="historico"></div>
 
 <script>
-    let historicoInvest = JSON.parse(localStorage.getItem('fin_hist')) || [];
+    // Carregar chave salva
+    document.getElementById('api-key').value = localStorage.getItem('gemini_key') || '';
 
-    async function scanImage(input) {
-        if (!input.files || !input.files[0]) return;
-        const loader = document.getElementById('loading-ai');
-        loader.style.display = 'block';
+    async function analisarComAI(input) {
+        const key = document.getElementById('api-key').value;
+        if(!key) return alert("Por favor, cole sua API Key primeiro!");
+        localStorage.setItem('gemini_key', key);
 
-        try {
-            const worker = await Tesseract.createWorker();
-            await worker.loadLanguage('por'); 
-            await worker.initialize('por');
+        const file = input.files[0];
+        const reader = new FileReader();
+        
+        document.getElementById('status').innerText = "🤖 Gemini analisando imagem...";
+
+        reader.onload = async () => {
+            const base64Image = reader.result.split(',')[1];
             
-            const { data: { text } } = await worker.recognize(input.files[0]);
-            const lines = text.toUpperCase().split('\n');
-            let vals = [];
+            // Prompt para a IA extrair apenas o que importa
+            const prompt = "Analise este print de investimento. Extraia o VALOR INVESTIDO e o LUCRO. Responda APENAS no formato JSON: {\"investido\": 0.00, \"lucro\": 0.00}";
 
-            lines.forEach(line => {
-                // Captura valores no formato 1.200,00 ou 500,00
-                const matches = line.match(/(\d{1,3}(\.\d{3})*|\d+)(\,\d{2})/g);
-                if (matches) {
-                    matches.forEach(m => {
-                        let n = parseFloat(m.replace(/\./g, '').replace(',', '.'));
-                        if (n > 1) vals.push(n);
-                    });
-                }
-            });
+            try {
+                const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        contents: [{ parts: [
+                            { text: prompt },
+                            { inline_data: { mime_type: "image/jpeg", data: base64Image } }
+                        ]}]
+                    })
+                });
 
-            if (vals.length >= 2) {
-                // Maior valor = Investimento, Menor valor = Lucro
-                adicionarRegistro(Math.max(...vals), Math.min(...vals));
-            } else {
-                alert("Não foi possível ler os valores. Tente uma foto mais nítida.");
+                const data = await resp.json();
+                const textoResposta = data.candidates[0].content.parts[0].text;
+                const valores = JSON.parse(textoResposta.replace(/```json|```/g, ''));
+                
+                salvarNoHistorico(valores.investido, valores.lucro);
+                document.getElementById('status').innerText = "✅ Concluído!";
+            } catch (e) {
+                alert("Erro ao processar imagem. Verifique sua chave.");
+                document.getElementById('status').innerText = "";
             }
-
-            await worker.terminate();
-        } catch (e) {
-            alert("Erro no escaneamento.");
-        } finally {
-            loader.style.display = 'none';
-        }
-    }
-
-    function adicionarRegistro(invest, lucro) {
-        const d = new Date();
-        d.setDate(d.getDate() + 1); // Liberação em 1 dia (padrão)
-        
-        const diasSemana = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-        
-        const novoItem = {
-            id: Date.now(),
-            investido: invest,
-            lucro: lucro,
-            dataLibera: `${diasSemana[d.getDay()]}, ${d.toLocaleDateString('pt-BR')}`
         };
-
-        historicoInvest.unshift(novoItem);
-        salvarERenderizar();
+        reader.readAsDataURL(file);
     }
 
-    function removeInvest(id) {
-        historicoInvest = historicoInvest.filter(item => item.id !== id);
-        salvarERenderizar();
+    function salvarNoHistorico(inv, luc) {
+        const hist = JSON.parse(localStorage.getItem('invest_hist') || '[]');
+        const novo = { 
+            data: new Date().toLocaleDateString('pt-BR'), 
+            investido: inv, 
+            lucro: luc 
+        };
+        hist.unshift(novo);
+        localStorage.setItem('invest_hist', JSON.stringify(hist));
+        render();
     }
 
-    function salvarERenderizar() {
-        localStorage.setItem('fin_hist', JSON.stringify(historicoInvest));
-        const container = document.getElementById('history-items');
-        
-        if (historicoInvest.length === 0) {
-            container.innerHTML = "<p style='color:#333; text-align:center; font-size:0.8rem;'>Nenhum registro.</p>";
-            return;
-        }
-
-        container.innerHTML = historicoInvest.map(item => `
+    function render() {
+        const hist = JSON.parse(localStorage.getItem('invest_hist') || '[]');
+        document.getElementById('historico').innerHTML = hist.map(item => `
             <div class="hist-item">
-                <button class="btn-del" onclick="removeInvest(${item.id})">×</button>
-                <div class="label-libera">Liberação: ${item.dataLibera}</div>
-                <div class="val-row">
-                    <span class="val-unit">Investido: R$ ${item.investido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
-                    <span class="val-profit">+ R$ ${item.lucro.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
-                </div>
+                <small>${item.data}</small><br>
+                <b>Investido:</b> R$ ${item.investido.toFixed(2)} | 
+                <b style="color:var(--neon)">Lucro:</b> R$ ${item.lucro.toFixed(2)}
             </div>
         `).join('');
     }
 
-    // Carregar ao abrir
-    window.onload = salvarERenderizar;
+    render();
 </script>
 </body>
 </html>
