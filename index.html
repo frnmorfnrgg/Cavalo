@@ -48,10 +48,10 @@
         .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #555; font-size: 0.65rem; font-weight: bold; }
         .nav-item.active { color: var(--neon); }
         
-        .hist-item { background:#1a1a1a; padding:15px; border-radius:15px; margin-bottom:12px; border: 1px solid #333; }
-        .data-info { font-size: 0.75rem; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .hist-item { background:#1a1a1a; padding:15px; border-radius:15px; margin-bottom:12px; border: 1px solid #333; position: relative; }
+        .btn-delete-item { position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--red); font-weight: bold; font-size: 1.1rem; cursor: pointer; padding: 5px; }
+        .data-info { font-size: 0.75rem; margin-bottom: 4px; display: flex; justify-content: space-between; padding-right: 25px; }
 
-        /* Estilos adicionais para a área de Scanner */
         .scanner-area { background: rgba(0, 212, 255, 0.08); border: 2px dashed var(--blue); padding: 20px; border-radius: 20px; text-align: center; margin-bottom: 20px; cursor: pointer; }
         #loading-ai { display: none; color: var(--blue); font-size: 0.8rem; margin-top: 10px; font-weight: bold; }
     </style>
@@ -158,7 +158,6 @@
     let capitalInvestidoTotal = 0; 
     let historicoInvest = [];
 
-    // --- NOVA LÓGICA DE ESCANEAMENTO ---
     async function scanImage(input) {
         if (!input.files || !input.files[0]) return;
         document.getElementById('loading-ai').style.display = 'block';
@@ -183,8 +182,9 @@
                     if(mR) {
                         tempTotal = parseFloat(mR[1].replace(',', '.'));
                         if(tempInvest > 0) {
+                            // CORREÇÃO: Lucro é o Total Esperado menos o que foi investido
                             const lucroLiquido = tempTotal - tempInvest;
-                            adicionarRegistroIA(tempInvest, lucroLiquido, tempDias, tempData);
+                            adicionarRegistroIA(tempInvest, lucroLiquido, tempTotal, tempDias, tempData);
                             tempInvest = 0; tempTotal = 0;
                         }
                     }
@@ -195,24 +195,35 @@
         finally { document.getElementById('loading-ai').style.display = 'none'; input.value = ""; }
     }
 
-    function adicionarRegistroIA(invest, lucro, dias, dataStr) {
+    function adicionarRegistroIA(invest, lucro, total, dias, dataStr) {
         let dInic = dataStr ? new Date(dataStr.split('/').reverse().join('-') + 'T12:00:00') : new Date();
         let dSair = new Date(dInic);
         dSair.setDate(dInic.getDate() + (dias || 1));
 
         historicoInvest.unshift({ 
-            investido: invest, lucro: lucro, 
+            id: Date.now() + Math.random(),
+            investido: invest, lucro: lucro, total: total,
             inicio: formatarD(dInic), sair: formatarD(dSair) 
         });
         capitalInvestidoTotal += invest; cofreGeral += lucro;
     }
 
-    // --- SUAS FUNÇÕES ORIGINAIS MANTIDAS ---
     const formatarD = (data) => {
         const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
         const d = data.getDate().toString().padStart(2, '0');
         const m = (data.getMonth() + 1).toString().padStart(2, '0');
         return `${d}/${m} (${dias[data.getDay()]})`;
+    }
+
+    function deleteInvest(id) {
+        const index = historicoInvest.findIndex(item => item.id === id);
+        if (index !== -1) {
+            cofreGeral -= historicoInvest[index].lucro;
+            capitalInvestidoTotal -= historicoInvest[index].investido;
+            historicoInvest.splice(index, 1);
+            update();
+            renderHistorico();
+        }
     }
 
     function handleAuth() {
@@ -222,39 +233,33 @@
         localStorage.setItem('finance_session', user);
         document.getElementById('user-display').innerText = user.toUpperCase();
         
-        cofreGeral = parseFloat(localStorage.getItem(user + '_cofre')) || 0;
-        ganhoVideos = parseFloat(localStorage.getItem(user + '_videos')) || 0;
-        capitalInvestidoTotal = parseFloat(localStorage.getItem(user + '_cap_inv')) || 0;
-        historicoInvest = JSON.parse(localStorage.getItem(user + '_history')) || [];
+        const saved = JSON.parse(localStorage.getItem(user + '_all_data')) || {};
+        cofreGeral = saved.cofre || 0;
+        ganhoVideos = saved.videos || 0;
+        capitalInvestidoTotal = saved.cap || 0;
+        historicoInvest = saved.hist || [];
         
-        document.getElementById('q-a').value = localStorage.getItem(user + '_qa') || 0;
-        document.getElementById('q-b').value = localStorage.getItem(user + '_qb') || 0;
-        document.getElementById('q-c').value = localStorage.getItem(user + '_qc') || 0;
+        document.getElementById('q-a').value = saved.qa || 0;
+        document.getElementById('q-b').value = saved.qb || 0;
+        document.getElementById('q-c').value = saved.qc || 0;
 
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('app-content').style.display = 'block';
-        update();
-        renderHistorico();
+        update(); renderHistorico();
     }
 
     function calcularPrevia() {
         const p = parseFloat(document.getElementById('v-p').value) || 0;
         const tx = parseFloat(document.getElementById('v-i').value) || 0;
         const n = parseInt(document.getElementById('v-n').value) || 1;
-        const dataInput = document.getElementById('v-data').value;
-        const box = document.getElementById('previa-box');
-
         if(p > 0 && tx > 0) {
-            let dInic = dataInput ? new Date(dataInput + 'T12:00:00') : new Date();
+            let dInic = document.getElementById('v-data').value ? new Date(document.getElementById('v-data').value + 'T12:00:00') : new Date();
             let dSair = new Date(dInic);
             dSair.setDate(dInic.getDate() + n);
-
             document.getElementById('previa-data-saida').innerText = formatarD(dSair);
             document.getElementById('previa-lucro').innerText = (p * (tx/100) * n).toLocaleString('pt-BR', {minimumFractionDigits: 2});
-            box.style.display = "block";
-        } else {
-            box.style.display = "none";
-        }
+            document.getElementById('previa-box').style.display = "block";
+        } else { document.getElementById('previa-box').style.display = "none"; }
     }
 
     function saveToCofre(tipo) {
@@ -265,23 +270,18 @@
             const p = parseFloat(document.getElementById('v-p').value) || 0;
             const tx = parseFloat(document.getElementById('v-i').value) || 0;
             const n = parseInt(document.getElementById('v-n').value) || 1;
-            if(p <= 0 || tx <= 0) return;
-
+            if(p <= 0) return;
             let dInic = document.getElementById('v-data').value ? new Date(document.getElementById('v-data').value + 'T12:00:00') : new Date();
             let dSair = new Date(dInic);
             dSair.setDate(dInic.getDate() + n);
-
             const lucro = p * (tx/100) * n;
             historicoInvest.unshift({ 
-                investido: p, lucro: lucro, 
+                id: Date.now() + Math.random(),
+                investido: p, lucro: lucro, total: (p + lucro),
                 inicio: formatarD(dInic), sair: formatarD(dSair) 
             });
             capitalInvestidoTotal += p; cofreGeral += lucro;
-            
-            document.getElementById('v-p').value = "";
-            document.getElementById('v-i').value = "";
-            document.getElementById('v-data').value = "";
-            document.getElementById('previa-box').style.display = "none";
+            document.getElementById('v-p').value = ""; document.getElementById('v-i').value = "";
         }
         update(); renderHistorico();
     }
@@ -291,35 +291,35 @@
         document.getElementById('display-cofre').innerText = f(cofreGeral);
         document.getElementById('display-video-resumo').innerText = f(ganhoVideos);
         document.getElementById('display-invest-resumo').innerText = f(capitalInvestidoTotal);
-        
         const qTot = (parseInt(document.getElementById('q-a').value) || 0) + (parseInt(document.getElementById('q-b').value) || 0) + (parseInt(document.getElementById('q-c').value) || 0);
         document.getElementById('display-pessoas').innerText = qTot;
 
         if(currentUser) {
-            localStorage.setItem(currentUser + '_cofre', cofreGeral);
-            localStorage.setItem(currentUser + '_videos', ganhoVideos);
-            localStorage.setItem(currentUser + '_cap_inv', capitalInvestidoTotal);
-            localStorage.setItem(currentUser + '_history', JSON.stringify(historicoInvest));
-            localStorage.setItem(currentUser + '_qa', document.getElementById('q-a').value);
-            localStorage.setItem(currentUser + '_qb', document.getElementById('q-b').value);
-            localStorage.setItem(currentUser + '_qc', document.getElementById('q-c').value);
+            const dataToSave = {
+                cofre: cofreGeral, videos: ganhoVideos, cap: capitalInvestidoTotal,
+                hist: historicoInvest, qa: document.getElementById('q-a').value,
+                qb: document.getElementById('q-b').value, qc: document.getElementById('q-c').value
+            };
+            localStorage.setItem(currentUser + '_all_data', JSON.stringify(dataToSave));
         }
     }
 
     function renderHistorico() {
         document.getElementById('history-items').innerHTML = historicoInvest.map(item => `
             <div class="hist-item">
+                <button class="btn-delete-item" onclick="deleteInvest(${item.id})">×</button>
                 <div class="data-info" style="color:#888"><span>Entrada:</span> <b>${item.inicio}</b></div>
-                <div class="data-info" style="color:var(--neon); margin-bottom:8px"><span>Liberação:</span> <b>${item.sair}</b></div>
+                <div class="data-info" style="color:var(--neon); margin-bottom:8px"><span>Retorno:</span> <b>${item.sair}</b></div>
                 <div style="display:flex; justify-content:space-between; border-top:1px solid #222; padding-top:8px">
-                    <span style="font-size:0.7rem; color:#666">Capital: R$ ${item.investido.toFixed(2)}</span>
-                    <span style="color:var(--neon); font-weight:bold">+ R$ ${item.lucro.toFixed(2)}</span>
+                    <span style="font-size:0.7rem; color:#666">Inv: R$ ${item.investido.toFixed(2)}</span>
+                    <span style="color:var(--neon); font-weight:bold">+ Lucro: R$ ${item.lucro.toFixed(2)}</span>
                 </div>
+                <div style="font-size: 0.65rem; color: var(--blue); text-align: right; margin-top: 5px;">Total: R$ ${(item.total || (item.investido + item.lucro)).toFixed(2)}</div>
             </div>
         `).join('');
     }
 
-    function zerarSaldo() { if(confirm("Apagar tudo desta conta?")) { cofreGeral=0; ganhoVideos=0; capitalInvestidoTotal=0; historicoInvest=[]; update(); renderHistorico(); } }
+    function zerarSaldo() { if(confirm("Apagar tudo?")) { localStorage.clear(); location.reload(); } }
     function tab(id, el) { document.querySelectorAll('.page, .nav-item').forEach(x => x.classList.remove('active')); document.getElementById('page-'+id).classList.add('active'); el.classList.add('active'); }
     function logout() { localStorage.removeItem('finance_session'); location.reload(); }
     
