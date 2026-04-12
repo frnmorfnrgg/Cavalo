@@ -147,8 +147,6 @@
                 }
 
                 if(tempInvest > 0 && tempRendimento > 0) {
-                    // LÓGICA CORRIGIDA: Soma o investido com o rendimento
-                    // Ex: 55 (invest) + 495 (rendimento lido) = 550 total
                     adicionarRegistro(tempInvest, tempRendimento, tempDias);
                     tempInvest = 0; tempRendimento = 0;
                 }
@@ -161,11 +159,13 @@
     function adicionarRegistro(invest, lucro, dias) {
         let dInic = new Date();
         let dFim = new Date(); dFim.setDate(dInic.getDate() + (dias || 1));
+        
         historicoInvest.unshift({ 
             id: Date.now() + Math.random(),
             investido: invest, 
             lucro: lucro, 
-            total: (invest + lucro), // Exibe 550
+            total: (invest + lucro), 
+            dataFeito: formatarD(dInic), // NOVO: Guarda o dia que foi feito
             inicio: formatarD(dInic), 
             sair: formatarD(dFim) 
         });
@@ -197,7 +197,9 @@
         update(); renderHistorico();
     }
 
-    function formatarD(data) { return data.getDate().toString().padStart(2,'0')+'/'+(data.getMonth()+1).toString().padStart(2,'0'); }
+    function formatarD(data) { 
+        return data.getDate().toString().padStart(2,'0')+'/'+(data.getMonth()+1).toString().padStart(2,'0'); 
+    }
 
     function update() {
         const f = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -213,8 +215,10 @@
         document.getElementById('history-items').innerHTML = historicoInvest.map(item => `
             <div class="hist-item">
                 <button class="btn-del" onclick="removeInvest(${item.id})">×</button>
-                <div class="data-info"><span>Prazo: ${item.inicio} até ${item.sair}</span></div>
-                <div style="display:flex; justify-content:space-between; margin-top:5px">
+                <div class="data-info">
+                    <span style="color:var(--blue)">Feito em: ${item.dataFeito}</span> <span>Libera: ${item.sair}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:8px">
                     <span style="font-size:0.7rem; color:#888">Inv: R$ ${item.investido.toFixed(2)}</span>
                     <span style="color:var(--neon); font-weight:bold">Lucro: +R$ ${item.lucro.toFixed(2)}</span>
                 </div>
