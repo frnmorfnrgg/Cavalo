@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finance PRO - IA Engine</title>
+    <title>Finance PRO - IA Integridade</title>
     <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
         :root { --neon: #00ff88; --bg: #0a0a0a; --card: #161616; --blue: #00d4ff; }
@@ -21,15 +21,15 @@
 <body>
 
 <div class="header">
-    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">SYSTEM IA v1.1</h1>
+    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">SYSTEM IA v1.2</h1>
 </div>
 
 <div class="container">
     <div class="scanner-btn" onclick="document.getElementById('file-input').click()">
         <span style="font-size: 2rem;">📸</span><br>
-        <b style="color: var(--blue);">ESCANEAR REGISTROS</b><br>
+        <b style="color: var(--blue);">ESCANEAR REGISTROS COMPLETOS</b><br>
         <input type="file" id="file-input" accept="image/*" hidden onchange="processarIA(this)">
-        <div id="loading" class="loading-box">🤖 IA ANALISANDO PRAZOS E VALORES...</div>
+        <div id="loading" class="loading-box">🤖 ANALISANDO APENAS BLOCOS COMPLETOS...</div>
     </div>
 
     <div id="resultado-lista"></div>
@@ -54,6 +54,7 @@
             const { data: { text } } = await worker.recognize(input.files[0]);
             const cleanText = text.replace(/\s+/g, ' ');
 
+            // Regex aprimorados para capturar blocos
             const regexValores = /BRL\s?(\d+[\.,]\d{2})/gi;
             const regexDatas = /(\d{2}\/\d{2}\/\d{4})/g;
             const regexDias = /(\d+)\s?dias/gi;
@@ -63,42 +64,55 @@
             const prazos = [...cleanText.matchAll(regexDias)].map(m => parseInt(m[1]));
 
             let novosItens = [];
+            
+            // Loop de validação de integridade: Só salva se encontrar Investimento, Retorno e Prazo para o mesmo bloco
             for (let i = 0; i < valores.length; i += 2) {
-                if (valores[i+1]) {
-                    let dataInvest = datas[Math.floor(i/2)] || new Date().toLocaleDateString('pt-BR');
-                    let dias = prazos[Math.floor(i/2)] || 1;
+                let investido = valores[i];
+                let retorno = valores[i+1];
+                let dataIni = datas[Math.floor(i/2)];
+                let prazo = prazos[Math.floor(i/2)];
+
+                // TRAVA DE INTEGRIDADE: Verifica se todos os dados do bloco estão presentes
+                if (investido && retorno && dataIni && prazo) {
                     
-                    // Cálculo da data de retorno
-                    let partes = dataInvest.split('/');
+                    let partes = dataIni.split('/');
                     let dataObj = new Date(partes[2], partes[1] - 1, partes[0]);
-                    dataObj.setDate(dataObj.getDate() + dias);
+                    dataObj.setDate(dataObj.getDate() + prazo);
                     let dataRetorno = dataObj.toLocaleDateString('pt-BR');
 
                     novosItens.push({
                         id: Date.now() + i,
-                        investido: parseFloat(valores[i]),
-                        retorno: parseFloat(valores[i+1]),
-                        prazo: dias,
-                        dataIni: dataInvest,
+                        investido: parseFloat(investido),
+                        retorno: parseFloat(retorno),
+                        prazo: prazo,
+                        dataIni: dataIni,
                         dataFim: dataRetorno
                     });
+                } else {
+                    console.log("Bloco incompleto ignorado para evitar erro.");
                 }
             }
-            if (novosItens.length > 0) salvarNoBanco(novosItens);
-        } catch (e) { alert("Erro ao processar."); }
+
+            if (novosItens.length > 0) {
+                salvarNoBanco(novosItens);
+            } else {
+                alert("Nenhum investimento completo e visível foi detectado.");
+            }
+
+        } catch (e) { alert("Erro ao processar imagem."); }
         finally { document.getElementById('loading').style.display = 'none'; input.value = ""; }
     }
 
     function salvarNoBanco(itens) {
-        const antigo = JSON.parse(localStorage.getItem('db_finance_v2') || '[]');
-        localStorage.setItem('db_finance_v2', JSON.stringify([...itens, ...antigo]));
+        const antigo = JSON.parse(localStorage.getItem('db_finance_v3') || '[]');
+        localStorage.setItem('db_finance_v3', JSON.stringify([...itens, ...antigo]));
         render();
     }
 
-    function limparDados() { if(confirm("Apagar tudo?")) { localStorage.removeItem('db_finance_v2'); render(); } }
+    function limparDados() { if(confirm("Apagar tudo?")) { localStorage.removeItem('db_finance_v3'); render(); } }
 
     function render() {
-        const dados = JSON.parse(localStorage.getItem('db_finance_v2') || '[]');
+        const dados = JSON.parse(localStorage.getItem('db_finance_v3') || '[]');
         document.getElementById('resultado-lista').innerHTML = dados.map(item => `
             <div class="card">
                 <div style="font-size: 0.7rem; color: #888;">INÍCIO: ${item.dataIni} | <b>PRAZO: ${item.prazo} DIAS</b></div>
