@@ -3,102 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finance PRO - Scanner Especial</title>
+    <title>Finance PRO - Scanner Multi-Registros</title>
     <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
         :root { --neon: #00ff88; --bg: #050505; --card: #121212; --blue: #00d4ff; --red: #ff3e3e; }
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: var(--bg); color: white; margin: 0; padding-bottom: 100px; }
+        body { background: var(--bg); color: white; margin: 0; padding-bottom: 50px; }
         
         .header { background: linear-gradient(to bottom, #87ceeb, #5f9ea0); padding: 15px; text-align: center; font-weight: bold; color: #003366; }
         .container { padding: 20px; }
 
-        /* Área de Scanner Estilizada */
         .scanner-card { 
             background: rgba(0, 212, 255, 0.1); 
             border: 2px dashed var(--blue); 
-            padding: 30px; border-radius: 20px; 
+            padding: 25px; border-radius: 20px; 
             text-align: center; margin-bottom: 20px; cursor: pointer;
         }
 
-        /* Histórico igual ao print */
+        #loading { display: none; color: var(--blue); font-weight: bold; margin: 10px 0; font-size: 0.9rem; }
+
         .hist-item { 
             background: var(--card); border-radius: 15px; 
-            padding: 15px; margin-bottom: 10px; 
+            padding: 15px; margin-bottom: 12px; 
             border-left: 5px solid var(--blue);
             position: relative;
+            animation: slideIn 0.3s ease;
         }
-        .val-inv { color: var(--blue); font-size: 1.2rem; font-weight: bold; }
-        .val-retorno { color: var(--red); font-weight: bold; text-align: right; }
-        
-        #loading { display: none; color: var(--blue); font-weight: bold; margin: 10px 0; }
-        .btn-del { position: absolute; top: 10px; right: 10px; color: #444; border: none; background: none; font-size: 1.2rem; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .val-inv { color: var(--blue); font-size: 1.1rem; font-weight: bold; }
+        .val-retorno { color: var(--red); font-weight: bold; font-size: 0.9rem; }
+        .data-txt { font-size: 0.7rem; color: #777; margin-bottom: 5px; }
+        .btn-del { position: absolute; top: 10px; right: 10px; color: #ff3e3e; border: none; background: none; font-size: 1.1rem; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="header">Registro de Operações</div>
+<div class="header">Registro de Operações IA</div>
 
 <div class="container">
     <div class="scanner-card" onclick="document.getElementById('img-input').click()">
         <span style="font-size: 2rem;">📸</span><br>
-        <b>ESCANEAR EXTRATO</b>
-        <input type="file" id="img-input" accept="image/*" hidden onchange="lerPrint(this)">
-        <div id="loading">🤖 ANALISANDO VALORES...</div>
+        <b>LER TODA A IMAGEM</b>
+        <input type="file" id="img-input" accept="image/*" hidden onchange="processarImagemCompleta(this)">
+        <div id="loading">🤖 IA PROCESSANDO MÚLTIPLOS DADOS...</div>
     </div>
 
-    <h3 style="font-size: 0.9rem; color: #888;">HISTÓRICO RECENTE</h3>
     <div id="lista-invest"></div>
 </div>
 
 <script>
-    async function lerPrint(input) {
+    async function processarImagemCompleta(input) {
         if (!input.files || !input.files[0]) return;
         const loader = document.getElementById('loading');
         loader.style.display = 'block';
 
         try {
             const worker = await Tesseract.createWorker();
-            await worker.loadLanguage('eng'); // 'eng' funciona melhor para números e siglas como BRL
+            await worker.loadLanguage('eng');
             await worker.initialize('eng');
             
             const { data: { text } } = await worker.recognize(input.files[0]);
-            console.log("Texto detectado:", text); // Para debug
-
-            // Procura por padrões como "BRL 130.00" ou "BRL 55.00"
-            const regex = /BRL\s?(\d+[\.,]\d{2})/gi;
-            let matches = [...text.matchAll(regex)];
             
-            if (matches.length >= 2) {
-                // No seu print, o primeiro BRL é o Investimento e o segundo (embaixo) é o Retorno
-                let inv = parseFloat(matches[0][1].replace(',', '.'));
-                let ret = parseFloat(matches[1][1].replace(',', '.'));
-                
-                // Se o lucro for maior que o investimento (como no seu print de 130 para 442)
-                let lucroReal = ret - inv;
-                if (lucroReal < 0) lucroReal = ret; // Caso a IA troque as ordens
+            // Regex para capturar BRL e Datas (Ex: 09/04/2026)
+            const regexValores = /BRL\s?(\d+[\.,]\d{2})/gi;
+            const regexDatas = /(\d{2}\/\d{2}\/\d{4})/g;
 
-                adicionarAoHistórico(inv, lucroReal);
-            } else {
-                alert("Não consegui ler os valores BRL. Tente uma foto mais nítida.");
+            let valoresEncontrados = [...text.matchAll(regexValores)].map(m => parseFloat(m[1].replace(',', '.')));
+            let datasEncontradas = [...text.matchAll(regexDatas)].map(m => m[1]);
+
+            let novosRegistros = [];
+
+            // No seu print, cada bloco tem 2 valores BRL (Investimento e Retorno)
+            // Vamos percorrer de 2 em 2
+            for (let i = 0; i < valoresEncontrados.length; i += 2) {
+                if (valoresEncontrados[i+1]) {
+                    let inv = valoresEncontrados[i];
+                    let ret = valoresEncontrados[i+1];
+                    let data = datasEncontradas[Math.floor(i/2)] || new Date().toLocaleDateString('pt-BR');
+
+                    novosRegistros.push({
+                        id: Date.now() + i,
+                        inv: inv,
+                        ret: ret,
+                        lucro: ret - inv,
+                        data: data
+                    });
+                }
             }
+
+            if (novosRegistros.length > 0) {
+                salvarVarios(novosRegistros);
+            } else {
+                alert("Não identifiquei blocos de investimento completos.");
+            }
+
             await worker.terminate();
         } catch (e) {
-            alert("Erro ao processar imagem.");
+            alert("Erro ao ler a imagem.");
         } finally {
             loader.style.display = 'none';
         }
     }
 
-    function adicionarAoHistórico(investido, lucro) {
-        const dados = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
-        dados.unshift({
-            id: Date.now(),
-            inv: investido,
-            luc: lucro,
-            data: new Date().toLocaleDateString('pt-BR')
-        });
-        localStorage.setItem('fin_pro_data', JSON.stringify(dados));
+    function salvarVarios(lista) {
+        const antigos = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
+        // Adiciona os novos no topo
+        const atualizado = [...lista, ...antigos];
+        localStorage.setItem('fin_pro_data', JSON.stringify(atualizado));
         desenhar();
     }
 
@@ -111,13 +123,28 @@
 
     function desenhar() {
         const dados = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
-        document.getElementById('lista-invest').innerHTML = dados.map(item => `
+        const container = document.getElementById('lista-invest');
+        
+        if(dados.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#444;'>Nenhum dado lido.</p>";
+            return;
+        }
+
+        container.innerHTML = dados.map(item => `
             <div class="hist-item">
                 <button class="btn-del" onclick="remover(${item.id})">×</button>
-                <div style="font-size: 0.7rem; color: #888;">${item.data}</div>
-                <div class="val-inv">BRL ${item.inv.toFixed(2)}</div>
-                <div class="val-retorno">Retorno: BRL ${(item.inv + item.luc).toFixed(2)}</div>
-                <div style="color: var(--neon); font-size: 0.8rem; text-align: right;">Lucro: + BRL ${item.luc.toFixed(2)}</div>
+                <div class="data-txt">📅 Registro: ${item.data}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-size:0.6rem; color:#888;">INVESTIDO</div>
+                        <div class="val-inv">BRL ${item.inv.toFixed(2)}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:0.6rem; color:#888;">LUCRO ESTIMADO</div>
+                        <div style="color: var(--neon); font-weight:bold;">+ BRL ${item.lucro.toFixed(2)}</div>
+                        <div class="val-retorno">Total: BRL ${item.ret.toFixed(2)}</div>
+                    </div>
+                </div>
             </div>
         `).join('');
     }
