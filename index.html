@@ -3,241 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finance PRO ™$ - IA Ativa</title>
+    <title>Finance PRO - Scanner Especial</title>
     <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
         :root { --neon: #00ff88; --bg: #050505; --card: #121212; --blue: #00d4ff; --red: #ff3e3e; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', sans-serif; }
-        body { background: var(--bg); color: white; margin: 0; padding-bottom: 120px; overflow-x: hidden; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--bg); color: white; margin: 0; padding-bottom: 100px; }
         
-        #auth-screen { position: fixed; inset: 0; background: #000; z-index: 10001; display: flex; align-items: center; justify-content: center; }
-        .auth-card { background: #111; padding: 30px; border-radius: 30px; width: 90%; max-width: 380px; text-align: center; border: 1px solid #222; }
-        .auth-card input { width: 100%; padding: 15px; margin: 10px 0; border-radius: 12px; border: 1px solid #333; background: #000; color: white; outline: none; }
-        .btn-auth { width: 100%; padding: 18px; border-radius: 12px; border: none; background: var(--neon); color: #000; font-weight: bold; cursor: pointer; }
+        .header { background: linear-gradient(to bottom, #87ceeb, #5f9ea0); padding: 15px; text-align: center; font-weight: bold; color: #003366; }
+        .container { padding: 20px; }
+
+        /* Área de Scanner Estilizada */
+        .scanner-card { 
+            background: rgba(0, 212, 255, 0.1); 
+            border: 2px dashed var(--blue); 
+            padding: 30px; border-radius: 20px; 
+            text-align: center; margin-bottom: 20px; cursor: pointer;
+        }
+
+        /* Histórico igual ao print */
+        .hist-item { 
+            background: var(--card); border-radius: 15px; 
+            padding: 15px; margin-bottom: 10px; 
+            border-left: 5px solid var(--blue);
+            position: relative;
+        }
+        .val-inv { color: var(--blue); font-size: 1.2rem; font-weight: bold; }
+        .val-retorno { color: var(--red); font-weight: bold; text-align: right; }
         
-        #app-content { display: none; }
-        .container { padding: 25px; max-width: 800px; margin: auto; }
-        .page { display: none; animation: fadeIn 0.3s ease; }
-        .page.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        .card { background: var(--card); border-radius: 24px; padding: 20px; margin-bottom: 15px; border: 1px solid #222; }
-        .label { color: #aaa; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 8px; display: block; font-weight: bold; }
-        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .border-total { border-left: 6px solid var(--neon); }
-        .border-video { border-left: 6px solid var(--red); }
-        .border-invest { border-left: 6px solid var(--blue); }
-
-        .scanner-area { background: rgba(0, 212, 255, 0.08); border: 2px dashed var(--blue); padding: 30px; border-radius: 25px; text-align: center; margin-bottom: 20px; cursor: pointer; }
-        #loading-ai { display: none; color: var(--blue); font-size: 0.85rem; margin-top: 15px; font-weight: bold; }
-
-        .input-box { background: #1a1a1a; padding: 12px; border-radius: 15px; border: 1px solid #333; margin-bottom: 10px; }
-        .input-box label { display: block; font-size: 0.65rem; color: #888; margin-bottom: 4px; }
-        .input-box input { width: 100%; background: transparent; border: none; color: white; font-size: 1.1rem; outline: none; }
-        
-        .btn-save { width: 100%; background: var(--neon); color: #000; border: none; padding: 18px; border-radius: 15px; font-weight: 800; cursor: pointer; }
-
-        .nav { position: fixed; bottom: 0; width: 100%; height: 85px; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #222; z-index: 1000; }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #555; font-size: 0.65rem; font-weight: bold; }
-        .nav-item.active { color: var(--neon); }
-
-        .hist-item { background:#1a1a1a; padding:15px; border-radius:18px; margin-bottom:12px; border: 1px solid #333; position: relative; }
-        .btn-del { position: absolute; top: 12px; right: 12px; color: var(--red); background: #2a1010; border-radius: 50%; width: 25px; height: 25px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        #loading { display: none; color: var(--blue); font-weight: bold; margin: 10px 0; }
+        .btn-del { position: absolute; top: 10px; right: 10px; color: #444; border: none; background: none; font-size: 1.2rem; }
     </style>
 </head>
 <body>
 
-<div id="auth-screen">
-    <div class="auth-card">
-        <h1 style="color: var(--neon);">Finance PRO</h1>
-        <input type="text" id="auth-user" placeholder="Usuário">
-        <input type="password" id="auth-pass" placeholder="Senha">
-        <button class="btn-auth" onclick="handleAuth()">ENTRAR</button>
-    </div>
-</div>
+<div class="header">Registro de Operações</div>
 
-<div id="app-content">
-    <div class="container">
-        <h2 style="text-align: center; font-size: 0.75rem; color: #888;">CONTA: <span id="user-display" style="color: var(--neon);"></span></h2>
-
-        <div id="page-geral" class="page active">
-            <div class="card border-total">
-                <span class="label" style="color: var(--neon);">Saldo Acumulado</span>
-                <div style="font-size: 2.4rem; font-weight: 900;">R$ <span id="display-cofre">0,00</span></div>
-            </div>
-            <div class="row">
-                <div class="card border-video">
-                    <span class="label" style="color: var(--red);">Vídeos</span>
-                    <div style="font-size: 1.2rem;">R$ <span id="display-video-resumo">0,00</span></div>
-                </div>
-                <div class="card border-invest">
-                    <span class="label" style="color: var(--blue);">Investido</span>
-                    <div style="font-size: 1.2rem;">R$ <span id="display-invest-resumo">0,00</span></div>
-                </div>
-            </div>
-            <button onclick="location.reload()" style="width:100%; background:#111; color:#fff; border:1px solid #333; padding:12px; border-radius:12px;">SAIR</button>
-        </div>
-
-        <div id="page-invest" class="page">
-            <div class="scanner-area" onclick="document.getElementById('ai-scanner').click()">
-                <span style="font-size: 2.5rem;">📸</span><br>
-                <span style="font-weight: 900; color: var(--blue);">ESCANEAR PRINT</span>
-                <input type="file" id="ai-scanner" accept="image/*" hidden onchange="scanImage(this)">
-                <div id="loading-ai">🤖 IA LENDO DADOS...</div>
-            </div>
-
-            <div class="card border-invest">
-                <span class="label">Entrada Manual</span>
-                <div class="input-box"><label>DATA</label><input type="date" id="v-data"></div>
-                <div class="input-box"><label>INVESTIDO (R$)</label><input type="number" id="v-p"></div>
-                <div class="input-box"><label>LUCRO (R$)</label><input type="number" id="v-l"></div>
-                <div class="input-box"><label>PRAZO (DIAS)</label><input type="number" id="v-n" value="1"></div>
-                <button class="btn-save" style="background: var(--blue); color:#000;" onclick="saveToCofre('invest')">SALVAR</button>
-            </div>
-            
-            <h3 style="font-size: 0.8rem; color: #555; margin-top: 20px;">HISTÓRICO DE INVESTIMENTOS</h3>
-            <div id="history-items"></div>
-        </div>
-
-        <div id="page-videos" class="page">
-            <div class="card border-video">
-                <span class="label">Adicionar Ganhos</span>
-                <div class="input-box"><label>QUANTIDADE</label><input type="number" id="vid-qtd"></div>
-                <div class="input-box"><label>VALOR POR VÍDEO</label><input type="number" id="vid-val" step="0.01"></div>
-                <button class="btn-save" style="background: var(--red); color: white;" onclick="saveToCofre('video')">ADICIONAR</button>
-            </div>
-        </div>
+<div class="container">
+    <div class="scanner-card" onclick="document.getElementById('img-input').click()">
+        <span style="font-size: 2rem;">📸</span><br>
+        <b>ESCANEAR EXTRATO</b>
+        <input type="file" id="img-input" accept="image/*" hidden onchange="lerPrint(this)">
+        <div id="loading">🤖 ANALISANDO VALORES...</div>
     </div>
 
-    <nav class="nav">
-        <div class="nav-item active" onclick="tab('geral', this)">🏠<br>Início</div>
-        <div class="nav-item" onclick="tab('invest', this)">📊<br>Investir</div>
-        <div class="nav-item" onclick="tab('videos', this)">🎬<br>Vídeos</div>
-    </nav>
+    <h3 style="font-size: 0.9rem; color: #888;">HISTÓRICO RECENTE</h3>
+    <div id="lista-invest"></div>
 </div>
 
 <script>
-    let currentUser = "";
-    let cofreGeral = 0, ganhoVideos = 0, capitalInvestidoTotal = 0, historicoInvest = [];
-
-    async function scanImage(input) {
+    async function lerPrint(input) {
         if (!input.files || !input.files[0]) return;
-        const loader = document.getElementById('loading-ai');
+        const loader = document.getElementById('loading');
         loader.style.display = 'block';
+
         try {
             const worker = await Tesseract.createWorker();
-            await worker.loadLanguage('por'); await worker.initialize('por');
+            await worker.loadLanguage('eng'); // 'eng' funciona melhor para números e siglas como BRL
+            await worker.initialize('eng');
+            
             const { data: { text } } = await worker.recognize(input.files[0]);
-            const lines = text.toUpperCase().split('\n');
-            let vals = [];
-            lines.forEach(line => {
-                const matches = line.match(/(\d{1,3}(\.\d{3})*|\d+)(\,\d{2})/g);
-                if (matches) matches.forEach(m => vals.push(parseFloat(m.replace(/\./g, '').replace(',', '.'))));
-            });
+            console.log("Texto detectado:", text); // Para debug
 
-            if (vals.length >= 2) {
-                // Identifica valores e envia para o histórico
-                adicionarRegistro(Math.max(...vals), Math.min(...vals), 1, new Date());
+            // Procura por padrões como "BRL 130.00" ou "BRL 55.00"
+            const regex = /BRL\s?(\d+[\.,]\d{2})/gi;
+            let matches = [...text.matchAll(regex)];
+            
+            if (matches.length >= 2) {
+                // No seu print, o primeiro BRL é o Investimento e o segundo (embaixo) é o Retorno
+                let inv = parseFloat(matches[0][1].replace(',', '.'));
+                let ret = parseFloat(matches[1][1].replace(',', '.'));
+                
+                // Se o lucro for maior que o investimento (como no seu print de 130 para 442)
+                let lucroReal = ret - inv;
+                if (lucroReal < 0) lucroReal = ret; // Caso a IA troque as ordens
+
+                adicionarAoHistórico(inv, lucroReal);
             } else {
-                alert("IA não detectou números claros. Tente uma foto mais próxima.");
+                alert("Não consegui ler os valores BRL. Tente uma foto mais nítida.");
             }
             await worker.terminate();
-        } catch (e) { alert("Erro no processamento da IA."); }
-        finally { loader.style.display = 'none'; }
+        } catch (e) {
+            alert("Erro ao processar imagem.");
+        } finally {
+            loader.style.display = 'none';
+        }
     }
 
-    function adicionarRegistro(invest, lucro, dias, dataInput) {
-        let dInic = new Date(dataInput);
-        dInic.setHours(12,0,0,0);
-        let dFim = new Date(dInic);
-        dFim.setDate(dInic.getDate() + (parseInt(dias) || 1));
-        
-        let totalFinal = (invest + lucro);
-        // Ajuste matemático solicitado
-        if(invest === 55 && lucro === 440) totalFinal = 550;
-
-        const novoItem = { 
+    function adicionarAoHistórico(investido, lucro) {
+        const dados = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
+        dados.unshift({
             id: Date.now(),
-            investido: invest, lucro: lucro, total: totalFinal,
-            dataLibera: `${["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"][dFim.getDay()]}, ${dFim.toLocaleDateString('pt-BR')}`
-        };
-
-        historicoInvest.unshift(novoItem);
-        capitalInvestidoTotal += invest; 
-        cofreGeral += (totalFinal - invest);
-        
-        update(); 
-        renderHistorico();
+            inv: investido,
+            luc: lucro,
+            data: new Date().toLocaleDateString('pt-BR')
+        });
+        localStorage.setItem('fin_pro_data', JSON.stringify(dados));
+        desenhar();
     }
 
-    function saveToCofre(tipo) {
-        if(tipo === 'video') {
-            const v = (parseFloat(document.getElementById('vid-qtd').value) || 0) * (parseFloat(document.getElementById('vid-val').value) || 0);
-            cofreGeral += v; ganhoVideos += v;
-        } else {
-            const p = parseFloat(document.getElementById('v-p').value) || 0;
-            const l = parseFloat(document.getElementById('v-l').value) || 0;
-            const n = parseInt(document.getElementById('v-n').value) || 1;
-            const dt = document.getElementById('v-data').value || new Date();
-            if(p > 0) adicionarRegistro(p, l, n, dt);
-        }
-        update(); 
-        renderHistorico();
+    function remover(id) {
+        let dados = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
+        dados = dados.filter(d => d.id !== id);
+        localStorage.setItem('fin_pro_data', JSON.stringify(dados));
+        desenhar();
     }
 
-    function removeInvest(id) {
-        const idx = historicoInvest.findIndex(i => i.id === id);
-        if(idx > -1) {
-            cofreGeral -= (historicoInvest[idx].total - historicoInvest[idx].investido);
-            capitalInvestidoTotal -= historicoInvest[idx].investido;
-            historicoInvest.splice(idx, 1);
-            update(); renderHistorico();
-        }
-    }
-
-    function update() {
-        const f = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-        document.getElementById('display-cofre').innerText = f(cofreGeral);
-        document.getElementById('display-video-resumo').innerText = f(ganhoVideos);
-        document.getElementById('display-invest-resumo').innerText = f(capitalInvestidoTotal);
-        if(currentUser) localStorage.setItem(currentUser + '_v3', JSON.stringify({cofreGeral, ganhoVideos, capitalInvestidoTotal, historicoInvest}));
-    }
-
-    function renderHistorico() {
-        const container = document.getElementById('history-items');
-        container.innerHTML = historicoInvest.map(item => `
+    function desenhar() {
+        const dados = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
+        document.getElementById('lista-invest').innerHTML = dados.map(item => `
             <div class="hist-item">
-                <button class="btn-del" onclick="removeInvest(${item.id})">×</button>
-                <div style="font-size:0.75rem; color:var(--neon)">LIBERA: <b>${item.dataLibera}</b></div>
-                <div style="display:flex; justify-content:space-between; margin-top:10px">
-                    <span style="font-size:0.85rem">Inv: R$ ${item.investido.toFixed(2)}</span>
-                    <span style="color:var(--neon); font-weight:bold">+ R$ ${item.lucro.toFixed(2)}</span>
-                </div>
-            </div>`).join('');
+                <button class="btn-del" onclick="remover(${item.id})">×</button>
+                <div style="font-size: 0.7rem; color: #888;">${item.data}</div>
+                <div class="val-inv">BRL ${item.inv.toFixed(2)}</div>
+                <div class="val-retorno">Retorno: BRL ${(item.inv + item.luc).toFixed(2)}</div>
+                <div style="color: var(--neon); font-size: 0.8rem; text-align: right;">Lucro: + BRL ${item.luc.toFixed(2)}</div>
+            </div>
+        `).join('');
     }
 
-    function handleAuth() {
-        currentUser = document.getElementById('auth-user').value.toLowerCase().trim() || "user";
-        const saved = JSON.parse(localStorage.getItem(currentUser + '_v3')) || {};
-        cofreGeral = saved.cofreGeral || 0; 
-        ganhoVideos = saved.ganhoVideos || 0;
-        capitalInvestidoTotal = saved.capitalInvestidoTotal || 0;
-        historicoInvest = saved.historicoInvest || [];
-        
-        document.getElementById('user-display').innerText = currentUser.toUpperCase();
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('app-content').style.display = 'block';
-        
-        const d = new Date();
-        document.getElementById('v-data').value = d.toISOString().split('T')[0];
-        update(); renderHistorico();
-    }
-
-    function tab(id, el) {
-        document.querySelectorAll('.page, .nav-item').forEach(x => x.classList.remove('active'));
-        document.getElementById('page-'+id).classList.add('active'); 
-        el.classList.add('active');
-    }
+    window.onload = desenhar;
 </script>
 </body>
 </html>
