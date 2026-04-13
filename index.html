@@ -3,156 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finance PRO - IA Ultra</title>
+    <title>Finance PRO - IA Engine</title>
     <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
-        :root { --neon: #00ff88; --bg: #050505; --card: #121212; --blue: #00d4ff; --red: #ff3e3e; }
-        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: white; margin: 0; padding-bottom: 50px; }
+        :root { --neon: #00ff88; --bg: #0a0a0a; --card: #161616; --blue: #00d4ff; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
         
-        .header { background: linear-gradient(to bottom, #87ceeb, #5f9ea0); padding: 15px; text-align: center; font-weight: bold; color: #003366; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-        .container { padding: 20px; }
+        .header { background: #111; padding: 20px; text-align: center; border-bottom: 1px solid #222; }
+        .container { padding: 20px; flex: 1; max-width: 500px; margin: auto; width: 100%; }
 
-        .scanner-card { 
-            background: rgba(0, 212, 255, 0.05); 
-            border: 2px dashed var(--blue); 
-            padding: 30px; border-radius: 20px; 
-            text-align: center; margin-bottom: 20px; cursor: pointer;
+        /* Scanner */
+        .scanner-btn {
+            background: linear-gradient(145, #1a1a1a, #121212);
+            border: 2px dashed #333;
+            border-radius: 20px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
             transition: 0.3s;
         }
-        .scanner-card:active { transform: scale(0.98); background: rgba(0, 212, 255, 0.1); }
+        .scanner-btn:active { transform: scale(0.96); border-color: var(--blue); }
+        .loading-box { display: none; margin-top: 15px; color: var(--blue); font-weight: bold; font-size: 0.8rem; }
 
-        #loading { display: none; color: var(--blue); font-weight: bold; margin: 15px 0; font-size: 0.85rem; letter-spacing: 1px; }
-
-        .hist-item { 
-            background: var(--card); border-radius: 18px; 
-            padding: 18px; margin-bottom: 12px; 
-            border: 1px solid #222;
-            border-left: 5px solid var(--blue);
-            position: relative;
-            animation: slideIn 0.3s ease-out;
+        /* Lista de Resultados */
+        .card {
+            background: var(--card);
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 15px;
+            border-left: 4px solid var(--blue);
+            animation: fadeIn 0.4s ease;
         }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        .val-inv { color: var(--blue); font-size: 1.1rem; font-weight: bold; }
-        .data-txt { font-size: 0.7rem; color: #666; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
-        .btn-del { position: absolute; top: 10px; right: 10px; color: #444; border: none; background: none; font-size: 1.2rem; padding: 5px; cursor: pointer; }
-        
-        .empty-msg { text-align: center; color: #333; margin-top: 50px; font-size: 0.9rem; }
+        .btn-clear { background: #ff3e3e22; color: #ff3e3e; border: none; padding: 10px; width: 100%; border-radius: 10px; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div class="header">Registro de Operações IA</div>
+<div class="header">
+    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">SYSTEM IA v1.0</h1>
+</div>
 
 <div class="container">
-    <div class="scanner-card" onclick="document.getElementById('img-input').click()">
-        <span style="font-size: 2.5rem;">📸</span><br>
-        <b style="color: var(--blue);">LER TODA A IMAGEM</b><br>
-        <small style="color: #555;">Toque para selecionar o print</small>
-        <input type="file" id="img-input" accept="image/*" hidden onchange="processarImagem(this)">
-        <div id="loading">🤖 IA PROCESSANDO... AGUARDE</div>
+    <div class="scanner-btn" onclick="document.getElementById('file-input').click()">
+        <span style="font-size: 2rem;">📷</span><br>
+        <b style="color: var(--blue);">ESCANEAR REGISTROS</b><br>
+        <small style="color: #666;">Selecione o print da galeria</small>
+        <input type="file" id="file-input" accept="image/*" hidden onchange="processarIA(this)">
+        <div id="loading" class="loading-box">🤖 IA PROCESSANDO DADOS...</div>
     </div>
 
-    <div id="lista-invest"></div>
+    <div id="resultado-lista"></div>
+
+    <button class="btn-clear" onclick="limparDados()">LIMPAR TUDO</button>
 </div>
 
 <script>
-    async function processarImagem(input) {
+    // Inicializa o motor da IA assim que a página carrega
+    let worker = null;
+
+    async function initIA() {
+        worker = await Tesseract.createWorker();
+        await worker.loadLanguage('eng+por');
+        await worker.initialize('eng+por');
+        // Filtro para focar em números e moeda
+        await worker.setParameters({
+            tessedit_char_whitelist: '0123456789BRL.,/ ',
+        });
+        console.log("IA Pronta");
+    }
+    initIA();
+
+    async function processarIA(input) {
         if (!input.files || !input.files[0]) return;
         const loader = document.getElementById('loading');
         loader.style.display = 'block';
 
         try {
-            // Inicializa o Worker com tratamento de erro
-            const worker = await Tesseract.createWorker({
-                logger: m => console.log(m.progress)
-            });
-            
-            await worker.loadLanguage('por+eng');
-            await worker.initialize('por+eng');
-            
-            // Configuração para ler melhor números e moedas
-            await worker.setParameters({
-                tessedit_char_whitelist: '0123456789BRL.,/ ',
-            });
-
             const { data: { text } } = await worker.recognize(input.files[0]);
             
-            // Limpa o texto para evitar erros de leitura
-            const cleanText = text.replace(/\s+/g, ' ');
-
-            const regexValores = /(?:BRL|8RL)\s?(\d+[\.,]\d{2})/gi;
+            // Lógica de extração de valores BRL
+            const regexValores = /BRL\s?(\d+[\.,]\d{2})/gi;
             const regexDatas = /(\d{2}\/\d{2}\/\d{4})/g;
 
-            let valores = [...cleanText.matchAll(regexValores)].map(m => parseFloat(m[1].replace(',', '.')));
-            let datas = [...cleanText.matchAll(regexDatas)].map(m => m[1]);
+            const valoresEncontrados = [...text.matchAll(regexValores)].map(m => m[1].replace(',', '.'));
+            const datasEncontradas = [...text.matchAll(regexDatas)].map(m => m[1]);
 
-            let novos = [];
-            for (let i = 0; i < valores.length; i += 2) {
-                if (valores[i+1] !== undefined) {
-                    novos.push({
+            let novosItens = [];
+            // Itera de 2 em 2 (Investimento e Retorno esperado)
+            for (let i = 0; i < valoresEncontrados.length; i += 2) {
+                if (valoresEncontrados[i+1]) {
+                    novosItens.push({
                         id: Date.now() + i,
-                        inv: valores[i],
-                        ret: valores[i+1],
-                        lucro: valores[i+1] - valores[i],
-                        data: datas[Math.floor(i/2)] || new Date().toLocaleDateString('pt-BR')
+                        investido: parseFloat(valoresEncontrados[i]),
+                        retorno: parseFloat(valoresEncontrados[i+1]),
+                        data: datasEncontradas[Math.floor(i/2)] || new Date().toLocaleDateString('pt-BR')
                     });
                 }
             }
 
-            if (novos.length > 0) {
-                const antigos = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
-                localStorage.setItem('fin_pro_data', JSON.stringify([...novos, ...antigos]));
-                desenhar();
+            if (novosItens.length > 0) {
+                salvarNoBanco(novosItens);
             } else {
-                alert("A IA não encontrou valores BRL. Tente um print mais nítido.");
+                alert("Nenhum valor BRL detectado. Tente uma foto mais nítida.");
             }
 
-            await worker.terminate();
-        } catch (e) {
-            console.error(e);
-            alert("Erro de conexão com o motor da IA. Tente recarregar a página.");
+        } catch (erro) {
+            alert("Erro no motor da IA. Verifique sua internet.");
         } finally {
             loader.style.display = 'none';
-            input.value = ""; // Reseta o input para permitir a mesma imagem denovo
+            input.value = "";
         }
     }
 
-    function remover(id) {
-        let dados = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
-        localStorage.setItem('fin_pro_data', JSON.stringify(dados.filter(d => d.id !== id)));
-        desenhar();
+    function salvarNoBanco(itens) {
+        const antigo = JSON.parse(localStorage.getItem('db_finance') || '[]');
+        const novo = [...itens, ...antigo];
+        localStorage.setItem('db_finance', JSON.stringify(novo));
+        render();
     }
 
-    function desenhar() {
-        const dados = JSON.parse(localStorage.getItem('fin_pro_data') || '[]');
-        const container = document.getElementById('lista-invest');
+    function limparDados() {
+        if(confirm("Deseja apagar tudo?")) {
+            localStorage.removeItem('db_finance');
+            render();
+        }
+    }
+
+    function render() {
+        const dados = JSON.parse(localStorage.getItem('db_finance') || '[]');
+        const container = document.getElementById('resultado-lista');
         
-        if(dados.length === 0) {
-            container.innerHTML = `<div class="empty-msg">Nenhum registro encontrado.<br>Escaneie um print para começar.</div>`;
-            return;
-        }
-
         container.innerHTML = dados.map(item => `
-            <div class="hist-item">
-                <button class="btn-del" onclick="remover(${item.id})">×</button>
-                <div class="data-txt">📅 DATA: ${item.data}</div>
-                <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+            <div class="card">
+                <div style="font-size: 0.7rem; color: #888; margin-bottom: 5px;">📅 DATA: ${item.data}</div>
+                <div style="display: flex; justify-content: space-between;">
                     <div>
-                        <div style="font-size:0.6rem; color:#555;">VALOR INVESTIDO</div>
-                        <div class="val-inv">BRL ${item.inv.toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
+                        <small style="color: var(--blue)">INVESTIDO</small><br>
+                        <b>R$ ${item.investido.toFixed(2)}</b>
                     </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:0.6rem; color:var(--neon); font-weight:bold;">LUCRO +${item.lucro.toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
-                        <div style="font-size:0.8rem; font-weight:bold; color:var(--red)">TOTAL BRL ${item.ret.toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
+                    <div style="text-align: right;">
+                        <small style="color: var(--neon)">LUCRO</small><br>
+                        <b>R$ ${(item.retorno - item.investido).toFixed(2)}</b>
                     </div>
                 </div>
             </div>
         `).join('');
     }
 
-    window.onload = desenhar;
+    // Carregar dados ao abrir
+    window.onload = render;
 </script>
+
 </body>
 </html>
