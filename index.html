@@ -7,155 +7,113 @@
     <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
         :root { --neon: #00ff88; --bg: #0a0a0a; --card: #161616; --blue: #00d4ff; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', system-ui, sans-serif; }
-        body { background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
-        
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--bg); color: white; margin: 0; padding-bottom: 30px; }
         .header { background: #111; padding: 20px; text-align: center; border-bottom: 1px solid #222; }
-        .container { padding: 20px; flex: 1; max-width: 500px; margin: auto; width: 100%; }
-
-        /* Scanner */
-        .scanner-btn {
-            background: linear-gradient(145, #1a1a1a, #121212);
-            border: 2px dashed #333;
-            border-radius: 20px;
-            padding: 40px 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        .scanner-btn:active { transform: scale(0.96); border-color: var(--blue); }
+        .container { padding: 20px; max-width: 500px; margin: auto; width: 100%; }
+        .scanner-btn { background: #121212; border: 2px dashed #333; border-radius: 20px; padding: 40px 20px; text-align: center; cursor: pointer; }
         .loading-box { display: none; margin-top: 15px; color: var(--blue); font-weight: bold; font-size: 0.8rem; }
-
-        /* Lista de Resultados */
-        .card {
-            background: var(--card);
-            border-radius: 15px;
-            padding: 15px;
-            margin-top: 15px;
-            border-left: 4px solid var(--blue);
-            animation: fadeIn 0.4s ease;
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
+        .card { background: var(--card); border-radius: 15px; padding: 15px; margin-top: 15px; border-left: 4px solid var(--blue); }
+        .info-row { display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px solid #222; padding-top: 10px; }
         .btn-clear { background: #ff3e3e22; color: #ff3e3e; border: none; padding: 10px; width: 100%; border-radius: 10px; margin-top: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">SYSTEM IA v1.0</h1>
+    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">SYSTEM IA v1.1</h1>
 </div>
 
 <div class="container">
     <div class="scanner-btn" onclick="document.getElementById('file-input').click()">
-        <span style="font-size: 2rem;">📷</span><br>
+        <span style="font-size: 2rem;">📸</span><br>
         <b style="color: var(--blue);">ESCANEAR REGISTROS</b><br>
-        <small style="color: #666;">Selecione o print da galeria</small>
         <input type="file" id="file-input" accept="image/*" hidden onchange="processarIA(this)">
-        <div id="loading" class="loading-box">🤖 IA PROCESSANDO DADOS...</div>
+        <div id="loading" class="loading-box">🤖 IA ANALISANDO PRAZOS E VALORES...</div>
     </div>
 
     <div id="resultado-lista"></div>
-
     <button class="btn-clear" onclick="limparDados()">LIMPAR TUDO</button>
 </div>
 
 <script>
-    // Inicializa o motor da IA assim que a página carrega
     let worker = null;
-
     async function initIA() {
         worker = await Tesseract.createWorker();
         await worker.loadLanguage('eng+por');
         await worker.initialize('eng+por');
-        // Filtro para focar em números e moeda
-        await worker.setParameters({
-            tessedit_char_whitelist: '0123456789BRL.,/ ',
-        });
-        console.log("IA Pronta");
+        await worker.setParameters({ tessedit_char_whitelist: '0123456789BRL.,/ dias' });
     }
     initIA();
 
     async function processarIA(input) {
         if (!input.files || !input.files[0]) return;
-        const loader = document.getElementById('loading');
-        loader.style.display = 'block';
+        document.getElementById('loading').style.display = 'block';
 
         try {
             const { data: { text } } = await worker.recognize(input.files[0]);
-            
-            // Lógica de extração de valores BRL
+            const cleanText = text.replace(/\s+/g, ' ');
+
             const regexValores = /BRL\s?(\d+[\.,]\d{2})/gi;
             const regexDatas = /(\d{2}\/\d{2}\/\d{4})/g;
+            const regexDias = /(\d+)\s?dias/gi;
 
-            const valoresEncontrados = [...text.matchAll(regexValores)].map(m => m[1].replace(',', '.'));
-            const datasEncontradas = [...text.matchAll(regexDatas)].map(m => m[1]);
+            const valores = [...cleanText.matchAll(regexValores)].map(m => m[1].replace(',', '.'));
+            const datas = [...cleanText.matchAll(regexDatas)].map(m => m[1]);
+            const prazos = [...cleanText.matchAll(regexDias)].map(m => parseInt(m[1]));
 
             let novosItens = [];
-            // Itera de 2 em 2 (Investimento e Retorno esperado)
-            for (let i = 0; i < valoresEncontrados.length; i += 2) {
-                if (valoresEncontrados[i+1]) {
+            for (let i = 0; i < valores.length; i += 2) {
+                if (valores[i+1]) {
+                    let dataInvest = datas[Math.floor(i/2)] || new Date().toLocaleDateString('pt-BR');
+                    let dias = prazos[Math.floor(i/2)] || 1;
+                    
+                    // Cálculo da data de retorno
+                    let partes = dataInvest.split('/');
+                    let dataObj = new Date(partes[2], partes[1] - 1, partes[0]);
+                    dataObj.setDate(dataObj.getDate() + dias);
+                    let dataRetorno = dataObj.toLocaleDateString('pt-BR');
+
                     novosItens.push({
                         id: Date.now() + i,
-                        investido: parseFloat(valoresEncontrados[i]),
-                        retorno: parseFloat(valoresEncontrados[i+1]),
-                        data: datasEncontradas[Math.floor(i/2)] || new Date().toLocaleDateString('pt-BR')
+                        investido: parseFloat(valores[i]),
+                        retorno: parseFloat(valores[i+1]),
+                        prazo: dias,
+                        dataIni: dataInvest,
+                        dataFim: dataRetorno
                     });
                 }
             }
-
-            if (novosItens.length > 0) {
-                salvarNoBanco(novosItens);
-            } else {
-                alert("Nenhum valor BRL detectado. Tente uma foto mais nítida.");
-            }
-
-        } catch (erro) {
-            alert("Erro no motor da IA. Verifique sua internet.");
-        } finally {
-            loader.style.display = 'none';
-            input.value = "";
-        }
+            if (novosItens.length > 0) salvarNoBanco(novosItens);
+        } catch (e) { alert("Erro ao processar."); }
+        finally { document.getElementById('loading').style.display = 'none'; input.value = ""; }
     }
 
     function salvarNoBanco(itens) {
-        const antigo = JSON.parse(localStorage.getItem('db_finance') || '[]');
-        const novo = [...itens, ...antigo];
-        localStorage.setItem('db_finance', JSON.stringify(novo));
+        const antigo = JSON.parse(localStorage.getItem('db_finance_v2') || '[]');
+        localStorage.setItem('db_finance_v2', JSON.stringify([...itens, ...antigo]));
         render();
     }
 
-    function limparDados() {
-        if(confirm("Deseja apagar tudo?")) {
-            localStorage.removeItem('db_finance');
-            render();
-        }
-    }
+    function limparDados() { if(confirm("Apagar tudo?")) { localStorage.removeItem('db_finance_v2'); render(); } }
 
     function render() {
-        const dados = JSON.parse(localStorage.getItem('db_finance') || '[]');
-        const container = document.getElementById('resultado-lista');
-        
-        container.innerHTML = dados.map(item => `
+        const dados = JSON.parse(localStorage.getItem('db_finance_v2') || '[]');
+        document.getElementById('resultado-lista').innerHTML = dados.map(item => `
             <div class="card">
-                <div style="font-size: 0.7rem; color: #888; margin-bottom: 5px;">📅 DATA: ${item.data}</div>
-                <div style="display: flex; justify-content: space-between;">
-                    <div>
-                        <small style="color: var(--blue)">INVESTIDO</small><br>
-                        <b>R$ ${item.investido.toFixed(2)}</b>
-                    </div>
-                    <div style="text-align: right;">
-                        <small style="color: var(--neon)">LUCRO</small><br>
-                        <b>R$ ${(item.retorno - item.investido).toFixed(2)}</b>
-                    </div>
+                <div style="font-size: 0.7rem; color: #888;">INÍCIO: ${item.dataIni} | <b>PRAZO: ${item.prazo} DIAS</b></div>
+                <div style="display: flex; justify-content: space-between; margin-top:5px;">
+                    <div><small style="color:var(--blue)">INVESTIDO</small><br><b>R$ ${item.investido.toFixed(2)}</b></div>
+                    <div style="text-align:right"><small style="color:var(--neon)">LUCRO</small><br><b>R$ ${(item.retorno - item.investido).toFixed(2)}</b></div>
+                </div>
+                <div class="info-row">
+                    <span style="font-size: 0.75rem; color: var(--neon);">📅 RETORNO EM: <b>${item.dataFim}</b></span>
+                    <span style="font-size: 0.75rem;">Total: R$ ${item.retorno.toFixed(2)}</span>
                 </div>
             </div>
         `).join('');
     }
-
-    // Carregar dados ao abrir
     window.onload = render;
 </script>
-
 </body>
 </html>
