@@ -3,38 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finance PRO - IA Corrigida</title>
+    <title>Finance PRO - IA v2.0</title>
     <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
-        :root { --neon: #00ff88; --bg: #0a0a0a; --card: #161616; --blue: #00d4ff; }
+        :root { --neon: #00ff88; --bg: #050505; --card: #121212; --blue: #00d4ff; --red: #ff3e3e; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Segoe UI', sans-serif; }
-        body { background: var(--bg); color: white; margin: 0; padding-bottom: 30px; }
-        .header { background: #111; padding: 20px; text-align: center; border-bottom: 1px solid #222; }
-        .container { padding: 20px; max-width: 500px; margin: auto; width: 100%; }
+        body { background: var(--bg); color: white; margin: 0; padding-bottom: 100px; }
+        
+        /* Navegação */
+        .nav { position: fixed; bottom: 0; width: 100%; height: 70px; background: #111; display: flex; border-top: 1px solid #222; z-index: 100; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.7rem; color: #666; cursor: pointer; }
+        .nav-item.active { color: var(--neon); }
+
+        .container { padding: 20px; max-width: 500px; margin: auto; display: none; }
+        .container.active { display: block; }
+
+        /* Aba Início - Saldos */
+        .balance-card { background: var(--card); border-radius: 20px; padding: 25px; margin-bottom: 15px; border-left: 5px solid var(--neon); }
+        .balance-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .balance-value { font-size: 2rem; font-weight: bold; margin-bottom: 15px; }
+        .invested-card { background: var(--card); border-radius: 20px; padding: 20px; border-left: 5px solid var(--blue); }
+
+        /* Scanner */
         .scanner-btn { background: #121212; border: 2px dashed #333; border-radius: 20px; padding: 40px 20px; text-align: center; cursor: pointer; }
-        .loading-box { display: none; margin-top: 15px; color: var(--blue); font-weight: bold; font-size: 0.8rem; }
-        .card { background: var(--card); border-radius: 15px; padding: 15px; margin-top: 15px; border-left: 4px solid var(--blue); border-right: 1px solid #222; }
-        .info-row { display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px solid #222; padding-top: 10px; }
-        .btn-clear { background: #ff3e3e22; color: #ff3e3e; border: none; padding: 10px; width: 100%; border-radius: 10px; margin-top: 20px; cursor: pointer; }
+        #loading { display: none; color: var(--blue); font-weight: bold; margin-top: 15px; }
+
+        /* Histórico */
+        .card { background: var(--card); border-radius: 15px; padding: 15px; margin-top: 15px; border: 1px solid #222; }
+        .btn-clear { background: #ff3e3e22; color: #ff3e3e; border: none; padding: 12px; width: 100%; border-radius: 10px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">SYSTEM IA v1.3</h1>
+<div id="aba-inicio" class="container active">
+    <h2 style="color: var(--neon); font-size: 1rem;">RESUMO GERAL</h2>
+    <div class="balance-card">
+        <div class="balance-label">Saldo Total (Lucro)</div>
+        <div class="balance-value" style="color: var(--neon);">R$ <span id="saldo-total">0,00</span></div>
+    </div>
+    <div class="invested-card">
+        <div class="balance-label">Saldo Investido</div>
+        <div class="balance-value" style="color: var(--blue); font-size: 1.5rem;">R$ <span id="saldo-investido">0,00</span></div>
+    </div>
 </div>
 
-<div class="container">
+<div id="aba-scanner" class="container">
+    <h2 style="color: var(--blue); font-size: 1rem;">SCANNER IA</h2>
     <div class="scanner-btn" onclick="document.getElementById('file-input').click()">
-        <span style="font-size: 2rem;">📸</span><br>
-        <b style="color: var(--blue);">ESCANEAR REGISTROS</b><br>
+        <span style="font-size: 2.5rem;">📸</span><br>
+        <b>ESCANEAR INVESTIMENTOS</b><br>
+        <small style="color: #555;">Capture apenas blocos completos</small>
         <input type="file" id="file-input" accept="image/*" hidden onchange="processarIA(this)">
-        <div id="loading" class="loading-box">🤖 IA ANALISANDO E CORRIGINDO VALORES...</div>
+        <div id="loading">🤖 IA PROCESSANDO...</div>
     </div>
 
     <div id="resultado-lista"></div>
     <button class="btn-clear" onclick="limparDados()">LIMPAR TUDO</button>
 </div>
+
+<nav class="nav">
+    <div class="nav-item active" onclick="mudarAba('inicio', this)">🏠<br>Início</div>
+    <div class="nav-item" onclick="mudarAba('scanner', this)">📊<br>Investir</div>
+</nav>
 
 <script>
     let worker = null;
@@ -45,6 +75,13 @@
         await worker.setParameters({ tessedit_char_whitelist: '0123456789BRL.,/ dias' });
     }
     initIA();
+
+    function mudarAba(aba, el) {
+        document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.getElementById('aba-' + aba).classList.add('active');
+        el.classList.add('active');
+    }
 
     async function processarIA(input) {
         if (!input.files || !input.files[0]) return;
@@ -63,76 +100,69 @@
             const prazos = [...cleanText.matchAll(regexDias)].map(m => parseInt(m[1]));
 
             let novosItens = [];
-            
-            // Lógica de processamento por blocos de 2 valores (Investimento e Retorno)
             for (let i = 0; i < valores.length; i += 2) {
-                let investido = valores[i];
-                let retornoBruto = valores[i+1];
+                let inv = valores[i];
+                let ret = valores[i+1];
                 let dataIni = datas[Math.floor(i/2)];
                 let prazo = prazos[Math.floor(i/2)];
 
-                if (investido && retornoBruto && dataIni && prazo) {
+                if (inv && ret && dataIni && prazo) {
+                    // Lógica solicitada: Se investe 100 e volta 1000, o lucro (Saldo Total) é 900
+                    let lucroReal = ret - inv; 
                     
-                    // CORREÇÃO MATEMÁTICA: 
-                    // Se o retorno lido for o "Retorno Esperado" (como os 495,33 do seu print),
-                    // o sistema soma o investido para gerar o montante final correto.
-                    let totalFinal = investido + retornoBruto;
-                    let lucroReal = retornoBruto;
-
-                    // Regra específica para o valor de 55 que você mencionou
-                    if (Math.round(investido) === 55 && Math.round(retornoBruto) === 495) {
-                        totalFinal = 550.00;
-                        lucroReal = 495.00;
-                    }
-
                     let partes = dataIni.split('/');
                     let dataObj = new Date(partes[2], partes[1] - 1, partes[0]);
                     dataObj.setDate(dataObj.getDate() + prazo);
 
                     novosItens.push({
                         id: Date.now() + i,
-                        investido: investido,
+                        investido: inv,
                         lucro: lucroReal,
-                        total: totalFinal,
-                        prazo: prazo,
-                        dataIni: dataIni,
-                        dataFim: dataObj.toLocaleDateString('pt-BR')
+                        dataFim: dataObj.toLocaleDateString('pt-BR'),
+                        prazo: prazo
                     });
                 }
             }
-
-            if (novosItens.length > 0) salvarNoBanco(novosItens);
-            else alert("IA não detectou blocos completos.");
-
-        } catch (e) { alert("Erro ao processar."); }
+            if (novosItens.length > 0) salvar(novosItens);
+        } catch (e) { alert("Erro na leitura."); }
         finally { document.getElementById('loading').style.display = 'none'; input.value = ""; }
     }
 
-    function salvarNoBanco(itens) {
-        const antigo = JSON.parse(localStorage.getItem('db_finance_v4') || '[]');
-        localStorage.setItem('db_finance_v4', JSON.stringify([...itens, ...antigo]));
-        render();
+    function salvar(itens) {
+        const antigo = JSON.parse(localStorage.getItem('fin_db_v5') || '[]');
+        localStorage.setItem('fin_db_v5', JSON.stringify([...itens, ...antigo]));
+        atualizarTudo();
     }
 
-    function limparDados() { if(confirm("Apagar tudo?")) { localStorage.removeItem('db_finance_v4'); render(); } }
+    function limparDados() { if(confirm("Apagar tudo?")) { localStorage.removeItem('fin_db_v5'); atualizarTudo(); } }
 
-    function render() {
-        const dados = JSON.parse(localStorage.getItem('db_finance_v4') || '[]');
-        document.getElementById('resultado-lista').innerHTML = dados.map(item => `
-            <div class="card">
-                <div style="font-size: 0.7rem; color: #888;">INÍCIO: ${item.dataIni} | <b>${item.prazo} DIAS</b></div>
-                <div style="display: flex; justify-content: space-between; margin-top:5px;">
-                    <div><small style="color:var(--blue)">INVESTIDO</small><br><b>R$ ${item.investido.toFixed(2)}</b></div>
-                    <div style="text-align:right"><small style="color:var(--neon)">LUCRO (+)</small><br><b>R$ ${item.lucro.toFixed(2)}</b></div>
-                </div>
-                <div class="info-row">
-                    <span style="font-size: 0.75rem; color: var(--neon);">📅 RECEBER EM: <b>${item.dataFim}</b></span>
-                    <span style="font-size: 0.75rem; font-weight:bold;">TOTAL: R$ ${item.total.toFixed(2)}</span>
-                </div>
-            </div>
-        `).join('');
+    function atualizarTudo() {
+        const dados = JSON.parse(localStorage.getItem('fin_db_v5') || '[]');
+        let totalLucro = 0;
+        let totalInvestido = 0;
+
+        const lista = document.getElementById('resultado-lista');
+        lista.innerHTML = "";
+
+        dados.forEach(item => {
+            totalLucro += item.lucro;
+            totalInvestido += item.investido;
+
+            lista.innerHTML += `
+                <div class="card">
+                    <div style="font-size:0.7rem; color:#666;">RETORNO EM: ${item.dataFim} (${item.prazo} DIAS)</div>
+                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                        <span>Investido: <b>R$ ${item.investido.toFixed(2)}</b></span>
+                        <span style="color:var(--neon)">Lucro: <b>+ R$ ${item.lucro.toFixed(2)}</b></span>
+                    </div>
+                </div>`;
+        });
+
+        document.getElementById('saldo-total').innerText = totalLucro.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        document.getElementById('saldo-investido').innerText = totalInvestido.toLocaleString('pt-BR', {minimumFractionDigits: 2});
     }
-    window.onload = render;
+
+    window.onload = atualizarTudo;
 </script>
 </body>
 </html>
