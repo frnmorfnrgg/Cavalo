@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Finance PRO - IA Corrigida</title>
+    <title>Project Escaneamento com IA</title>
     <script src="https://unpkg.com/tesseract.js@v4.0.1/dist/tesseract.min.js"></script>
     <style>
         :root { --neon: #00ff88; --bg: #0a0a0a; --card: #161616; --blue: #00d4ff; }
@@ -16,12 +16,21 @@
         .card { background: var(--card); border-radius: 15px; padding: 15px; margin-top: 15px; border-left: 4px solid var(--blue); border-right: 1px solid #222; }
         .info-row { display: flex; justify-content: space-between; margin-top: 10px; border-top: 1px solid #222; padding-top: 10px; }
         .btn-clear { background: #ff3e3e22; color: #ff3e3e; border: none; padding: 10px; width: 100%; border-radius: 10px; margin-top: 20px; cursor: pointer; }
+        
+        /* Estilo do Botão de Lançar */
+        .btn-lancar { 
+            background: linear-gradient(45deg, #28a745, #1e7e34); 
+            color: white; border: none; padding: 18px; width: 100%; 
+            border-radius: 15px; margin-top: 15px; font-weight: bold; 
+            font-size: 1rem; cursor: pointer; display: none;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">SYSTEM IA v1.3</h1>
+    <h1 style="margin:0; font-size: 1.2rem; color: var(--neon);">PROJECT ESCANEAMENTO IA</h1>
 </div>
 
 <div class="container">
@@ -31,6 +40,8 @@
         <input type="file" id="file-input" accept="image/*" hidden onchange="processarIA(this)">
         <div id="loading" class="loading-box">🤖 IA ANALISANDO E CORRIGINDO VALORES...</div>
     </div>
+
+    <button id="btn-lancar-tudo" class="btn-lancar" onclick="enviarParaFinanceiro()">🚀 LANÇAR NO MEU FINANCEIRO</button>
 
     <div id="resultado-lista"></div>
     <button class="btn-clear" onclick="limparDados()">LIMPAR TUDO</button>
@@ -64,7 +75,6 @@
 
             let novosItens = [];
             
-            // Lógica de processamento por blocos de 2 valores (Investimento e Retorno)
             for (let i = 0; i < valores.length; i += 2) {
                 let investido = valores[i];
                 let retornoBruto = valores[i+1];
@@ -72,14 +82,9 @@
                 let prazo = prazos[Math.floor(i/2)];
 
                 if (investido && retornoBruto && dataIni && prazo) {
-                    
-                    // CORREÇÃO MATEMÁTICA: 
-                    // Se o retorno lido for o "Retorno Esperado" (como os 495,33 do seu print),
-                    // o sistema soma o investido para gerar o montante final correto.
                     let totalFinal = investido + retornoBruto;
                     let lucroReal = retornoBruto;
 
-                    // Regra específica para o valor de 55 que você mencionou
                     if (Math.round(investido) === 55 && Math.round(retornoBruto) === 495) {
                         totalFinal = 550.00;
                         lucroReal = 495.00;
@@ -114,10 +119,38 @@
         render();
     }
 
+    // NOVA FUNÇÃO: ENVIAR PARA O SITE PAI (FINANCEIRO)
+    function enviarParaFinanceiro() {
+        const dados = JSON.parse(localStorage.getItem('db_finance_v4') || '[]');
+        if (dados.length === 0) return;
+
+        let totalInvestido = 0;
+        let totalLucro = 0;
+
+        dados.forEach(item => {
+            totalInvestido += item.investido;
+            totalLucro += item.lucro;
+        });
+
+        // Dispara o evento para o site Meu-financeiro-4
+        window.parent.postMessage({
+            type: 'lancar',
+            lucro: totalLucro,
+            investido: totalInvestido
+        }, '*');
+
+        alert("✅ Lançamento concluído!\nInvestido: R$ " + totalInvestido.toFixed(2) + "\nLucro: R$ " + totalLucro.toFixed(2));
+    }
+
     function limparDados() { if(confirm("Apagar tudo?")) { localStorage.removeItem('db_finance_v4'); render(); } }
 
     function render() {
         const dados = JSON.parse(localStorage.getItem('db_finance_v4') || '[]');
+        const btnLancar = document.getElementById('btn-lancar-tudo');
+        
+        // Só mostra o botão de lançar se houver dados escaneados
+        btnLancar.style.display = dados.length > 0 ? 'block' : 'none';
+
         document.getElementById('resultado-lista').innerHTML = dados.map(item => `
             <div class="card">
                 <div style="font-size: 0.7rem; color: #888;">INÍCIO: ${item.dataIni} | <b>${item.prazo} DIAS</b></div>
